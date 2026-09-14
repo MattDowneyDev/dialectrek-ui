@@ -13,8 +13,7 @@ export const fr: LanguageDefinition = {
   // (le subjonctif / le subjonctif passé), plus the imperative --
   // everything else 422s until it gets an engine too.
   hasVerbs: true,
-  // No videos in the prod DB for French yet.
-  hasWatch: false,
+  hasWatch: true,
   verbCount: 100,
   wordCount: 2000,
   tenseLabels: {
