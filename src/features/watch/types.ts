@@ -6,7 +6,7 @@ export type Video = {
   title: string;
   channel: string;
   durationSeconds: number;
-  // Elo-style rating built up from "harder/easier than the last one" votes.
+  // Glicko rating built up from "harder/easier than the last one" votes.
   // The A1-C2 badge is just this score bucketed --
   // there's no separately-stored level to fall out of sync with it.
   difficultyScore: number;

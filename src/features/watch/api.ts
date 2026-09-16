@@ -84,17 +84,16 @@ export const dislikeVideo = async (
 
 export const compareVideos = async (
   language: string,
-  videoId: string,
-  previousVideoId: string,
-  result: "easier" | "same" | "harder",
+  harderVideoId: string,
+  easierVideoId: string,
   sessionId: string,
-): Promise<{ video: Video; previousVideo: Video } | undefined> => {
+): Promise<{ harderVideo: Video; easierVideo: Video } | undefined> => {
   try {
-    const response = await axios.post<{ video: ApiVideo; previous_video: ApiVideo }>(
-      `${BASE_URL}/${language}/videos/${videoId}/compare`,
-      { previous_video_id: previousVideoId, result, session_id: sessionId },
+    const response = await axios.post<{ harder_video: ApiVideo; easier_video: ApiVideo }>(
+      `${BASE_URL}/${language}/videos/${harderVideoId}/compare`,
+      { easier_video_id: easierVideoId, session_id: sessionId },
     );
-    return { video: toVideo(response.data.video), previousVideo: toVideo(response.data.previous_video) };
+    return { harderVideo: toVideo(response.data.harder_video), easierVideo: toVideo(response.data.easier_video) };
   } catch (error) {
     console.error("error submitting comparison:", error);
     return undefined;
