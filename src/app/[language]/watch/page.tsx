@@ -17,10 +17,10 @@ export const generateMetadata = async ({ params }: PageProps): Promise<Metadata>
   const definition = LANGUAGES[language];
   if (!definition) return {};
   return pageMetadata({
-    title: `Watch ${definition.displayName} Videos`,
+    title: `${definition.displayName} Comprehensible Input Videos`,
     description: definition.hasWatch
-      ? `Learn ${definition.displayName} from real native speakers on YouTube, with videos sorted to match your level.`
-      : `Watch ${definition.displayName} videos are coming soon.`,
+      ? `Comprehensible input videos in ${definition.displayName} -- real native speakers on YouTube, sorted by difficulty so you always understand enough to follow along.`
+      : `${definition.displayName} comprehensible input videos are coming soon.`,
     path: `/${language}/watch`,
   });
 };

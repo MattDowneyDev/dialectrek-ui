@@ -13,8 +13,8 @@ export const generateMetadata = async ({
   const definition = LANGUAGES[language];
   if (!definition) return {};
   return pageMetadata({
-    title: `${definition.displayName} Verb Conjugation`,
-    description: `Look up and practice ${definition.displayName} verb conjugations across every tense.`,
+    title: `Learn ${definition.displayName}`,
+    description: `Watch comprehensible input videos, practice verb conjugations, and learn vocabulary with flashcards to learn ${definition.displayName}.`,
     path: `/${language}`,
   });
 };
@@ -42,7 +42,10 @@ const HomePage = async ({ params }: PageProps) => {
           <div className="hero-text">
             <span className="hero-flag-emoji">{definition.flagEmoji}</span>
             <h1>{definition.displayName}</h1>
-            <p>Look things up fast, then practice until it sticks.</p>
+            <p>
+              Watch comprehensible input videos, practice verb conjugations, and
+              learn vocabulary with flashcards.
+            </p>
             <span
               className={`hero-flag-stripe hero-flag-stripe--${definition.code}`}
             />
@@ -56,7 +59,7 @@ const HomePage = async ({ params }: PageProps) => {
           <ActionCard
             to={`/${language}/watch`}
             title="Watch videos"
-            description="Learn from real native speakers on YouTube, sorted to match your level."
+            description="Comprehensible input from real native speakers on YouTube, sorted to match your level."
           />
           <ActionCard
             to={`/${language}/verbs`}

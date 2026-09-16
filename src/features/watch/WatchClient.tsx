@@ -7,8 +7,14 @@ import EmptyState from "../../components/EmptyState";
 import PageHeader from "../../components/PageHeader";
 import type { LanguageDefinition } from "../../languages/registry";
 import { compareVideos, dislikeVideo, fetchVideos, likeVideo } from "./api";
+import CompareThumb from "./CompareThumb";
 import DifficultyBadge from "./DifficultyBadge";
-import { ChevronDownIcon, PlayIcon, ThumbsDownIcon, ThumbsUpIcon } from "./icons";
+import {
+  ChevronDownIcon,
+  PlayIcon,
+  ThumbsDownIcon,
+  ThumbsUpIcon,
+} from "./icons";
 import {
   getSessionId,
   persistDislikedIds,
@@ -41,7 +47,13 @@ type WatchClientProps = {
   initialSeed?: number;
 };
 
-const WatchClient = ({ code, definition, initialVideos, initialHasMore, initialSeed }: WatchClientProps) => {
+const WatchClient = ({
+  code,
+  definition,
+  initialVideos,
+  initialHasMore,
+  initialSeed,
+}: WatchClientProps) => {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -74,11 +86,15 @@ const WatchClient = ({ code, definition, initialVideos, initialHasMore, initialS
   // leaving the page entirely.
   const activeVideoId = searchParams.get("video");
   const rawLevel = searchParams.get("level");
-  const filterLevel: DifficultyLevel | "all" = isDifficultyLevel(rawLevel) ? rawLevel : "all";
+  const filterLevel: DifficultyLevel | "all" = isDifficultyLevel(rawLevel)
+    ? rawLevel
+    : "all";
   const rawSort = searchParams.get("sort");
   const sortMode: SortMode = isSortMode(rawSort) ? rawSort : "random";
   const randomVideoLabel =
-    filterLevel === "all" ? "Watch random video" : `Watch random ${levelLabel[filterLevel].toLowerCase()} video`;
+    filterLevel === "all"
+      ? "Watch random video"
+      : `Watch random ${levelLabel[filterLevel]} video`;
 
   // Clears any leftover confirmation whenever the video in the URL changes
   // -- including when it's cleared by the back button -- so a stale
@@ -162,7 +178,10 @@ const WatchClient = ({ code, definition, initialVideos, initialHasMore, initialS
     return () => observer.disconnect();
   }, [activeVideoId, showGrid]);
 
-  const updateParams = (updates: Record<string, string | null>, push: boolean) => {
+  const updateParams = (
+    updates: Record<string, string | null>,
+    push: boolean,
+  ) => {
     const params = new URLSearchParams(searchParams.toString());
     for (const [key, value] of Object.entries(updates)) {
       if (value === null) {
@@ -191,10 +210,11 @@ const WatchClient = ({ code, definition, initialVideos, initialHasMore, initialS
     setTrackedVideoId(activeVideoId);
   }
 
-  const activeVideo = videos.find((video) => video.id === activeVideoId) ?? null;
+  const activeVideo =
+    videos.find((video) => video.id === activeVideoId) ?? null;
   const lastVideo =
     lastWatchedId && lastWatchedId !== activeVideoId
-      ? videos.find((video) => video.id === lastWatchedId) ?? null
+      ? (videos.find((video) => video.id === lastWatchedId) ?? null)
       : null;
 
   const visibleVideos = videos;
@@ -223,11 +243,15 @@ const WatchClient = ({ code, definition, initialVideos, initialHasMore, initialS
       sort: "random",
       seed: Math.floor(Math.random() * 1_000_000_000),
     });
-    const candidates = result.items.filter((video) => video.id !== activeVideo.id);
+    const candidates = result.items.filter(
+      (video) => video.id !== activeVideo.id,
+    );
     setIsFindingRandom(false);
     if (candidates.length === 0) return;
     const pick = candidates[Math.floor(Math.random() * candidates.length)];
-    setVideos((prev) => (prev.some((video) => video.id === pick.id) ? prev : [...prev, pick]));
+    setVideos((prev) =>
+      prev.some((video) => video.id === pick.id) ? prev : [...prev, pick],
+    );
     // Pushed, same as picking a video from the grid -- the back button
     // should step through watch history one video at a time (this random
     // video, then whatever was playing before it, and so on) before
@@ -240,7 +264,9 @@ const WatchClient = ({ code, definition, initialVideos, initialHasMore, initialS
     setIsMutating(true);
     const updated = await likeVideo(code, id, getSessionId());
     if (updated) {
-      setVideos((prev) => prev.map((video) => (video.id === id ? updated : video)));
+      setVideos((prev) =>
+        prev.map((video) => (video.id === id ? updated : video)),
+      );
       // A video can only be liked or disliked at once -- liking always
       // clears any standing dislike, mirroring the backend's toggle.
       const nextDisliked = new Set(dislikedIds);
@@ -265,7 +291,9 @@ const WatchClient = ({ code, definition, initialVideos, initialHasMore, initialS
     setIsMutating(true);
     const updated = await dislikeVideo(code, id, getSessionId());
     if (updated) {
-      setVideos((prev) => prev.map((video) => (video.id === id ? updated : video)));
+      setVideos((prev) =>
+        prev.map((video) => (video.id === id ? updated : video)),
+      );
       const nextLiked = new Set(likedIds);
       nextLiked.delete(id);
       setLikedIds(nextLiked);
@@ -283,24 +311,25 @@ const WatchClient = ({ code, definition, initialVideos, initialHasMore, initialS
     setIsMutating(false);
   };
 
-  const castComparisonVote = async (direction: "easier" | "same" | "harder") => {
+  const castComparisonVote = async (harderId: string, easierId: string) => {
     if (!activeVideo || !lastVideo || isMutating) return;
     setIsMutating(true);
 
-    const result = await compareVideos(code, activeVideo.id, lastVideo.id, direction, getSessionId());
+    const result = await compareVideos(
+      code,
+      harderId,
+      easierId,
+      getSessionId(),
+    );
     if (result) {
       setVideos((prev) =>
         prev.map((video) => {
-          if (video.id === result.video.id) return result.video;
-          if (video.id === result.previousVideo.id) return result.previousVideo;
+          if (video.id === result.harderVideo.id) return result.harderVideo;
+          if (video.id === result.easierVideo.id) return result.easierVideo;
           return video;
         }),
       );
-      setConfirmation(
-        direction === "same"
-          ? "Noted as about the same difficulty."
-          : "Thanks -- the ranking just updated.",
-      );
+      setConfirmation("Thanks for ranking!");
     }
     setIsMutating(false);
   };
@@ -355,38 +384,49 @@ const WatchClient = ({ code, definition, initialVideos, initialHasMore, initialS
             </div>
 
             <div className="watch-random-row">
-              <Button variant="outline" onClick={watchRandomVideo} disabled={isFindingRandom}>
+              <Button
+                variant="outline"
+                onClick={watchRandomVideo}
+                disabled={isFindingRandom}
+              >
                 {isFindingRandom ? "Finding a video..." : randomVideoLabel}
               </Button>
             </div>
 
-            {!confirmation && (lastVideo ? (
-              <div className="watch-compare">
-                <p>
-                  Compared to <strong>{lastVideo.title}</strong>, was this one...
-                </p>
-                <div className="watch-compare-actions">
-                  <Button variant="outline" onClick={() => castComparisonVote("easier")} disabled={isMutating}>
-                    Easier
-                  </Button>
-                  <Button variant="outline" onClick={() => castComparisonVote("same")} disabled={isMutating}>
-                    About the same
-                  </Button>
-                  <Button variant="outline" onClick={() => castComparisonVote("harder")} disabled={isMutating}>
-                    Harder
-                  </Button>
+            {!confirmation &&
+              (lastVideo ? (
+                <div className="watch-compare">
+                  <p>
+                    Which video was{" "}
+                    <span className="watch-compare-emphasis">harder</span>?
+                  </p>
+                  <div className="watch-compare-thumbs">
+                    <CompareThumb
+                      video={lastVideo}
+                      onSelect={() =>
+                        castComparisonVote(lastVideo.id, activeVideo.id)
+                      }
+                      disabled={isMutating}
+                    />
+                    <span className="watch-compare-vs">vs</span>
+                    <CompareThumb
+                      video={activeVideo}
+                      onSelect={() =>
+                        castComparisonVote(activeVideo.id, lastVideo.id)
+                      }
+                      disabled={isMutating}
+                    />
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="watch-compare">
-                <p>Watch at least one more video to start ranking.</p>
-              </div>
-            ))}
+              ) : (
+                <div className="watch-compare">
+                  <p>Watch at least one more video to start ranking.</p>
+                </div>
+              ))}
 
             {confirmation && (
               <div className="watch-compare">
                 <p>{confirmation}</p>
-                <Button onClick={backToBrowse}>Back to browsing</Button>
               </div>
             )}
           </div>
@@ -395,7 +435,7 @@ const WatchClient = ({ code, definition, initialVideos, initialHasMore, initialS
         <>
           <PageHeader
             title="Watch"
-            subtitle={`Native ${definition.displayName} speakers on YouTube, sorted by level -- so you can actually keep up.`}
+            subtitle={`Comprehensible input from native ${definition.displayName} speakers on YouTube, sorted by level so you always understand enough to follow along.`}
           />
 
           <div className="watch-toolbar">
@@ -406,18 +446,25 @@ const WatchClient = ({ code, definition, initialVideos, initialHasMore, initialS
                   value={filterLevel}
                   onChange={(event) =>
                     updateParams(
-                      { level: event.target.value === "all" ? null : event.target.value },
+                      {
+                        level:
+                          event.target.value === "all"
+                            ? null
+                            : event.target.value,
+                      },
                       false,
                     )
                   }
                   aria-label="Filter by level"
                 >
                   <option value="all">All levels</option>
-                  {(["a1", "a2", "b1", "b2", "c1", "c2"] as const).map((level) => (
-                    <option key={level} value={level}>
-                      {levelLabel[level]}
-                    </option>
-                  ))}
+                  {(["a1", "a2", "b1", "b2", "c1", "c2"] as const).map(
+                    (level) => (
+                      <option key={level} value={level}>
+                        {levelLabel[level]}
+                      </option>
+                    ),
+                  )}
                 </select>
                 <span className="watch-select-chevron">
                   <ChevronDownIcon />
@@ -430,7 +477,12 @@ const WatchClient = ({ code, definition, initialVideos, initialHasMore, initialS
                   value={sortMode}
                   onChange={(event) =>
                     updateParams(
-                      { sort: event.target.value === "random" ? null : event.target.value },
+                      {
+                        sort:
+                          event.target.value === "random"
+                            ? null
+                            : event.target.value,
+                      },
                       false,
                     )
                   }
@@ -451,18 +503,28 @@ const WatchClient = ({ code, definition, initialVideos, initialHasMore, initialS
           {isLoading ? (
             <EmptyState>Loading videos...</EmptyState>
           ) : visibleVideos.length === 0 ? (
-            <EmptyState>No videos at this level yet. Try a different filter.</EmptyState>
+            <EmptyState>
+              No videos at this level yet. Try a different filter.
+            </EmptyState>
           ) : (
             <>
               <div className="watch-grid">
                 {visibleVideos.map((video) => (
-                  <VideoCard key={video.id} video={video} onSelect={openVideo} />
+                  <VideoCard
+                    key={video.id}
+                    video={video}
+                    onSelect={openVideo}
+                  />
                 ))}
               </div>
               {/* Scrolling this into view triggers the next page -- see the
                   IntersectionObserver effect above. Stays mounted even once
                   hasMore is false; loadMoreRef is a no-op in that case. */}
-              <div ref={sentinelRef} className="watch-load-sentinel" aria-hidden="true" />
+              <div
+                ref={sentinelRef}
+                className="watch-load-sentinel"
+                aria-hidden="true"
+              />
               {isLoadingMore && <EmptyState>Loading more...</EmptyState>}
             </>
           )}
