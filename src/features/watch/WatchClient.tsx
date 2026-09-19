@@ -343,6 +343,7 @@ const WatchClient = ({
             title={activeVideo.title}
             subtitle={`${activeVideo.channel} · ${formatDuration(activeVideo.durationSeconds)}`}
             backTo={{ onClick: backToBrowse, label: "← All videos" }}
+            compact
           />
 
           <div className="watch-player">
