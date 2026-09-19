@@ -38,9 +38,11 @@ const CookieConsentBanner = () => {
       aria-label="Cookie consent"
     >
       <p className="cookie-consent-text">
-        We use Google Analytics to understand how DialecTrek is used. It only
-        runs if you say yes, and you can change your mind anytime from the
-        link in the footer. See our{" "}
+        We use Google Analytics to understand how DialecTrek is used, and the
+        Watch feature loads videos directly from YouTube -- both set cookies
+        from Google. They only run if you say yes, and you can change your
+        mind anytime from the link in the footer. If you decline, you can
+        still load an individual video with a click. See our{" "}
         <Link href="/privacy">privacy policy</Link> for details.
       </p>
       <div className="cookie-consent-actions">

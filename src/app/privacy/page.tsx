@@ -26,14 +26,34 @@ const PrivacyPage = () => {
           address so we can reply.
         </p>
 
-        <h2>Cookies and analytics</h2>
+        <h2>Cookies, analytics, and embedded video</h2>
         <p>
           We use Google Analytics to understand which pages and features get
           used, so we can improve them. Google Analytics is off by default:
-          it only sets cookies and starts measuring after you accept
-          analytics cookies in the banner shown on your first visit. If you
-          decline, no Google Analytics cookies are set and no analytics data
-          is sent for you.
+          it only sets cookies and starts measuring after you accept cookies
+          in the banner shown on your first visit. If you decline, no Google
+          Analytics cookies are set and no analytics data is sent for you.
+        </p>
+        <p>
+          The Watch feature plays videos directly from YouTube using
+          Google&apos;s official, privacy-enhanced YouTube player
+          (youtube-nocookie.com). Like analytics, this only loads
+          automatically if you&apos;ve accepted cookies in that same banner.
+          If you&apos;ve declined, videos show a thumbnail instead, and
+          clicking it to play loads that one video and accepts
+          YouTube&apos;s cookies for it -- your choice on the banner isn&apos;t
+          changed and no other video is affected. Loading a video lets
+          YouTube (Google) set its own cookies and collect data about the
+          view, governed by the{" "}
+          <a
+            href="https://policies.google.com/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Google Privacy Policy
+          </a>
+          . We don&apos;t control what Google collects through the player or
+          how long it&apos;s kept; see that policy for your options.
         </p>
         <p>
           We also use Vercel Analytics and Vercel Speed Insights to track
@@ -43,15 +63,18 @@ const PrivacyPage = () => {
 
         <h2>Your choices</h2>
         <p>
-          You can change your analytics cookie choice at any time using the
+          You can change your cookie choice at any time using the
           &quot;Cookie preferences&quot; link in the footer of any page.
+          Declining doesn&apos;t block the Watch feature -- each video can
+          still be loaded individually with a click, as described above.
         </p>
 
         <h2>Third parties</h2>
         <p>
-          We share data with Google (Google Analytics) and Vercel (hosting,
-          analytics, and speed insights) only as described above. We
-          don&apos;t sell your data or use it for advertising.
+          We share data with Google (Google Analytics and, for the Watch
+          feature, the YouTube player) and Vercel (hosting, analytics, and
+          speed insights) only as described above. We don&apos;t sell your
+          data or use it for advertising.
         </p>
 
         <h2>Contact</h2>
