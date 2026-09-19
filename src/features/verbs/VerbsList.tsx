@@ -10,14 +10,20 @@ type VerbsListProps = {
   verbs: VerbEntry[];
 };
 
+// Strips accents so a plain-ASCII search ("etre") still matches an
+// accented verb ("être") -- most people typing on a US keyboard won't
+// bother with the diacritics.
+const stripDiacritics = (value: string) =>
+  value.normalize("NFD").replace(/\p{Diacritic}/gu, "");
+
 const VerbsList = ({ code, verbs }: VerbsListProps) => {
   const [query, setQuery] = useState("");
 
   const filteredVerbs = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
+    const normalizedQuery = stripDiacritics(query.trim().toLowerCase());
     if (!normalizedQuery) return verbs;
     return verbs.filter(([target, english]) =>
-      `${target} ${english}`.toLowerCase().includes(normalizedQuery),
+      stripDiacritics(`${target} ${english}`.toLowerCase()).includes(normalizedQuery),
     );
   }, [verbs, query]);
 
