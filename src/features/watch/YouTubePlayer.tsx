@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+  CONSENT_CHANGED_EVENT,
+  getStoredConsent,
+} from "../../lib/consent";
+import { PlayIcon } from "./icons";
 
 // @types/youtube declares the YT namespace but not the API's own callback
 // global, which it invokes directly on window once the script loads.
@@ -46,7 +51,31 @@ const YouTubePlayer = ({ videoId }: YouTubePlayerProps) => {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YT.Player | null>(null);
 
+  // Loading YouTube's player sets cookies from Google beyond what's needed
+  // to render video, so it waits for the same cookie consent the analytics
+  // banner asks for. Declining doesn't block playback outright -- clicking
+  // the placeholder below counts as that visitor's own explicit request to
+  // load this one video, which is the standard compliant pattern for sites
+  // built around embedded video.
+  const [consented, setConsented] = useState(() => getStoredConsent() === "granted");
+  const [manuallyLoaded, setManuallyLoaded] = useState(false);
+  const shouldLoad = consented || manuallyLoaded;
+
   useEffect(() => {
+    const onConsentChange = () => setConsented(getStoredConsent() === "granted");
+    window.addEventListener(CONSENT_CHANGED_EVENT, onConsentChange);
+    return () => window.removeEventListener(CONSENT_CHANGED_EVENT, onConsentChange);
+  }, []);
+
+  // A manual click only ever grants that one video -- switching to another
+  // video without consent must show its own placeholder again.
+  useEffect(() => {
+    setManuallyLoaded(false);
+  }, [videoId]);
+
+  useEffect(() => {
+    if (!shouldLoad) return;
+
     let cancelled = false;
     const target = document.createElement("div");
     wrapperRef.current?.appendChild(target);
@@ -54,6 +83,9 @@ const YouTubePlayer = ({ videoId }: YouTubePlayerProps) => {
     loadYouTubeApi().then((YTApi) => {
       if (cancelled) return;
       playerRef.current = new YTApi.Player(target, {
+        // The privacy-enhanced domain -- YouTube's own mitigation for
+        // exactly this concern, on top of gating the load behind consent.
+        host: "https://www.youtube-nocookie.com",
         videoId,
         width: "100%",
         height: "100%",
@@ -71,7 +103,30 @@ const YouTubePlayer = ({ videoId }: YouTubePlayerProps) => {
       playerRef.current?.destroy();
       playerRef.current = null;
     };
-  }, [videoId]);
+  }, [videoId, shouldLoad]);
+
+  if (!shouldLoad) {
+    return (
+      <button
+        type="button"
+        className="watch-player-embed watch-player-placeholder"
+        onClick={() => setManuallyLoaded(true)}
+      >
+        <img
+          className="watch-player-placeholder-thumb"
+          src={`https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`}
+          alt=""
+        />
+        <span className="watch-player-placeholder-icon">
+          <PlayIcon />
+        </span>
+        <span className="watch-player-placeholder-text">
+          This video is hosted by YouTube. Click to load it and accept
+          YouTube&apos;s cookies.
+        </span>
+      </button>
+    );
+  }
 
   return <div className="watch-player-embed" ref={wrapperRef} />;
 };

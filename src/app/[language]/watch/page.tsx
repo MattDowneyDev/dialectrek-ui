@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import ComingSoon from "../../../components/ComingSoon";
-import { fetchVideos } from "../../../features/watch/api";
+import { fetchVideo, fetchVideos } from "../../../features/watch/api";
 import { isDifficultyLevel, isSortMode } from "../../../features/watch/types";
 import WatchClient from "../../../features/watch/WatchClient";
 import { LANGUAGES } from "../../../languages/registry";
@@ -9,7 +9,7 @@ import { pageMetadata } from "../../../lib/seo";
 
 type PageProps = {
   params: Promise<{ language: string }>;
-  searchParams: Promise<{ level?: string; sort?: string }>;
+  searchParams: Promise<{ level?: string; sort?: string; video?: string }>;
 };
 
 export const generateMetadata = async ({ params }: PageProps): Promise<Metadata> => {
@@ -37,11 +37,19 @@ const WatchPage = async ({ params, searchParams }: PageProps) => {
   // URL asked for, so the grid ships with real video titles and links in
   // the initial HTML -- crawlers and link previews that don't run JS would
   // otherwise only ever see the "Loading videos..." placeholder.
-  const { level: rawLevel, sort: rawSort } = await searchParams;
+  const { level: rawLevel, sort: rawSort, video: videoId } = await searchParams;
   const level = isDifficultyLevel(rawLevel) ? rawLevel : undefined;
   const sort = isSortMode(rawSort) ? rawSort : "random";
   const seed = Math.floor(Math.random() * 1_000_000_000);
-  const initial = await fetchVideos(definition.code, { level, sort, seed });
+  const [initial, initialActiveVideo] = await Promise.all([
+    fetchVideos(definition.code, { level, sort, seed }),
+    // The grid fetch above is just whatever page matches the current
+    // filter/sort -- the video someone's mid-refresh on on won't generally
+    // be in it, so it's fetched by id directly and merged in by WatchClient.
+    // Without this, opening a video link fresh (including a plain reload)
+    // never finds it and falls back to the browse grid instead.
+    videoId ? fetchVideo(definition.code, videoId) : Promise.resolve(undefined),
+  ]);
 
   return (
     <Suspense fallback={null}>
@@ -51,6 +59,7 @@ const WatchPage = async ({ params, searchParams }: PageProps) => {
         initialVideos={initial.items}
         initialHasMore={initial.hasMore}
         initialSeed={seed}
+        initialActiveVideo={initialActiveVideo}
       />
     </Suspense>
   );

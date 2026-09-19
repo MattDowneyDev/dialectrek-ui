@@ -17,6 +17,7 @@ export const getStoredConsent = (): ConsentChoice | null => {
 
 export const storeConsent = (choice: ConsentChoice) => {
   window.localStorage.setItem(CONSENT_STORAGE_KEY, choice);
+  window.dispatchEvent(new CustomEvent(CONSENT_CHANGED_EVENT, { detail: choice }));
 };
 
 export const applyConsent = (choice: ConsentChoice) => {
@@ -26,3 +27,8 @@ export const applyConsent = (choice: ConsentChoice) => {
 };
 
 export const OPEN_COOKIE_PREFERENCES_EVENT = "dialectrek:open-cookie-preferences";
+
+// Fired whenever the stored choice changes, so anything already on screen
+// (e.g. a video waiting behind a click-to-load placeholder) can react without
+// needing a page reload.
+export const CONSENT_CHANGED_EVENT = "dialectrek:consent-changed";

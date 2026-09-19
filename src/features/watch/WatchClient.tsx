@@ -45,6 +45,10 @@ type WatchClientProps = {
   initialVideos?: Video[];
   initialHasMore?: boolean;
   initialSeed?: number;
+  // The video named by the URL's ?video= param, fetched by id server-side
+  // since it won't generally be in initialVideos (that's just a page of the
+  // browse grid, matching the current filter/sort, not this one video).
+  initialActiveVideo?: Video;
 };
 
 const WatchClient = ({
@@ -53,13 +57,24 @@ const WatchClient = ({
   initialVideos,
   initialHasMore,
   initialSeed,
+  initialActiveVideo,
 }: WatchClientProps) => {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const hasInitialData = initialVideos !== undefined;
 
-  const [videos, setVideos] = useState<Video[]>(initialVideos ?? []);
+  // Merged in up front, the same way watchRandomVideo below merges its pick
+  // into videos so the activeVideo lookup finds it -- this is what lets a
+  // hard refresh (or opening a shared link) land straight on the right
+  // video instead of falling back to the browse grid.
+  const [videos, setVideos] = useState<Video[]>(() => {
+    const base = initialVideos ?? [];
+    if (initialActiveVideo && !base.some((video) => video.id === initialActiveVideo.id)) {
+      return [...base, initialActiveVideo];
+    }
+    return base;
+  });
   const [isLoading, setIsLoading] = useState(!hasInitialData);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(initialHasMore ?? false);
@@ -68,10 +83,6 @@ const WatchClient = ({
   // page load), reused across every "load more" page so sort=random stays
   // a stable order while paging through it instead of reshuffling per page.
   const seedRef = useRef(initialSeed ?? 0);
-  // The server already fetched a page matching the URL's filters on this
-  // load -- skips the client effect's own fetch the one time it would
-  // otherwise immediately discard that data and re-request the same thing.
-  const skipNextFetchRef = useRef(hasInitialData);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const [lastWatchedId, setLastWatchedId] = useState<string | null>(null);
   const [trackedVideoId, setTrackedVideoId] = useState<string | null>(null);
@@ -113,14 +124,25 @@ const WatchClient = ({
     setDislikedIds(readDislikedIds());
   }, []);
 
+  // Tracks which (code, level, sort) combo `videos` currently holds data
+  // for. The server already fetched a page matching the URL's filters on
+  // this load, so the effect below compares against this rather than using
+  // a one-shot "skip the first run" flag -- a flag like that gets consumed
+  // by React Strict Mode's extra mount-time effect replay in dev before the
+  // "real" run ever sees it, wiping out the SSR data and re-fetching (and
+  // reshuffling, for sort=random) a page that may no longer include
+  // whatever video is currently open. Comparing against the actual params
+  // already loaded is safe to check any number of times.
+  const loadedParamsKey = `${code}|${filterLevel}|${sortMode}`;
+  const loadedParamsRef = useRef(hasInitialData ? loadedParamsKey : null);
+
   // Filtering and sorting happen server-side now (see watch.py). A new
   // seed here means a fresh shuffle for sort=random each time the filters
   // actually change, while "load more" below keeps reusing this same seed.
   useEffect(() => {
-    if (skipNextFetchRef.current) {
-      skipNextFetchRef.current = false;
-      return;
-    }
+    if (loadedParamsRef.current === loadedParamsKey) return;
+    loadedParamsRef.current = loadedParamsKey;
+
     let cancelled = false;
     seedRef.current = Math.floor(Math.random() * 1_000_000_000);
     setIsLoading(true);
