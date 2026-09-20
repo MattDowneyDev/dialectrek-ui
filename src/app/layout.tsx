@@ -7,6 +7,7 @@ import "../App.css";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import FeedbackWidget from "../components/FeedbackWidget";
+import ThemeToggle from "../components/ThemeToggle";
 import CookieConsentBanner from "../components/CookieConsentBanner";
 import { ThemeProvider } from "../context/ThemeContext";
 import { jsonLdScript } from "../lib/jsonLd";
@@ -110,6 +111,7 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => (
           <Navbar />
           {children}
           <Footer />
+          <ThemeToggle />
           <FeedbackWidget />
         </div>
         <CookieConsentBanner />

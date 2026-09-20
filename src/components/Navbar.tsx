@@ -3,16 +3,21 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useTheme } from "../context/ThemeContext";
 import { LANGUAGES } from "../languages/registry";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isLangOpen, setIsLangOpen] = useState(false);
   const navRef = useRef<HTMLElement>(null);
-  const { theme, toggleTheme } = useTheme();
+  const langRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
-  const language = pathname.split("/").filter(Boolean)[0];
+  const segments = pathname.split("/").filter(Boolean);
+  const language = segments[0];
   const activeLanguage = language && LANGUAGES[language]?.enabled ? language : undefined;
+  // Dynamic slugs (verbs/[verb], grammar/[topic]) are language-specific, so
+  // switching languages mid-slug lands on the section list instead of a slug
+  // that likely doesn't exist for the target language.
+  const section = segments[1];
 
   const links = activeLanguage
     ? [
@@ -25,6 +30,12 @@ const Navbar = () => {
       ]
     : [];
 
+  const otherLanguages = activeLanguage
+    ? Object.entries(LANGUAGES).filter(
+        ([code, definition]) => definition.enabled && code !== activeLanguage,
+      )
+    : [];
+
   useEffect(() => {
     if (!isOpen) return;
     const handleClickOutside = (event: MouseEvent) => {
@@ -35,6 +46,17 @@ const Navbar = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isLangOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (langRef.current && !langRef.current.contains(event.target as Node)) {
+        setIsLangOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isLangOpen]);
 
   return (
     <nav className="navbar" ref={navRef}>
@@ -69,35 +91,37 @@ const Navbar = () => {
         </div>
 
         <div className="navbar-actions">
-          <button
-            className="theme-toggle"
-            type="button"
-            aria-label={
-              theme === "dark" ? "Switch to light mode" : "Switch to dark mode"
-            }
-            onClick={toggleTheme}
-          >
-            <svg
-              className="theme-toggle-icon theme-toggle-icon-sun"
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            >
-              <circle cx="12" cy="12" r="4" />
-              <path d="M12 3v2M12 19v2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M3 12h2M19 12h2M5.6 18.4l1.4-1.4M17 7l1.4-1.4" />
-            </svg>
-            <svg
-              className="theme-toggle-icon theme-toggle-icon-moon"
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-            >
-              <path d="M20.4 14.7A8.5 8.5 0 1 1 9.3 3.6a7 7 0 0 0 11.1 11.1Z" />
-            </svg>
-          </button>
+          {activeLanguage && otherLanguages.length > 0 && (
+            <div className="lang-switcher" ref={langRef}>
+              <button
+                className="lang-switcher-trigger"
+                type="button"
+                aria-label="Switch language"
+                aria-expanded={isLangOpen}
+                onClick={() => setIsLangOpen((open) => !open)}
+              >
+                <span aria-hidden="true">
+                  {LANGUAGES[activeLanguage].flagEmoji}
+                </span>
+              </button>
+
+              {isLangOpen && (
+                <div className="lang-dropdown">
+                  {otherLanguages.map(([code, definition]) => (
+                    <Link
+                      key={code}
+                      href={section ? `/${code}/${section}` : `/${code}`}
+                      className="lang-dropdown-item"
+                      onClick={() => setIsLangOpen(false)}
+                    >
+                      <span aria-hidden="true">{definition.flagEmoji}</span>
+                      {definition.displayName}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {links.length > 0 && (
             <button
