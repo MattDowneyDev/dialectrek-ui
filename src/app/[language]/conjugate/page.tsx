@@ -10,7 +10,9 @@ type PageProps = {
   searchParams: Promise<{ tenses?: string }>;
 };
 
-export const generateMetadata = async ({ params }: PageProps): Promise<Metadata> => {
+type MetadataProps = { params: PageProps["params"] };
+
+export const generateMetadata = async ({ params }: MetadataProps): Promise<Metadata> => {
   const { language } = await params;
   const definition = LANGUAGES[language];
   if (!definition) return {};

@@ -38,6 +38,11 @@ describe("pageMetadata", () => {
     expect(metadata.twitter?.images).toEqual([
       { url: "/DialecTrekHeroImage.png", alt: expect.any(String) },
     ]);
-    expect(metadata.twitter?.card).toBe("summary_large_image");
+    // pageMetadata always sets a card, but next's Twitter type is a union
+    // whose bare fallback member has no `card` field, so TS won't let us
+    // read it without narrowing past that union first.
+    expect((metadata.twitter as Record<string, unknown> | null)?.card).toBe(
+      "summary_large_image",
+    );
   });
 });
