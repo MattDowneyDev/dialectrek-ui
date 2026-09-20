@@ -7,6 +7,9 @@ vi.mock("../../components/Footer", () => ({ default: () => <div data-testid="foo
 vi.mock("../../components/FeedbackWidget", () => ({
   default: () => <div data-testid="feedback-widget" />,
 }));
+vi.mock("../../components/ThemeToggle", () => ({
+  default: () => <div data-testid="theme-toggle" />,
+}));
 vi.mock("../../components/CookieConsentBanner", () => ({
   default: () => <div data-testid="cookie-banner" />,
 }));
@@ -30,6 +33,7 @@ test("renders the shared page chrome around its children", () => {
   expect(screen.getByTestId("navbar")).toBeInTheDocument();
   expect(screen.getByTestId("footer")).toBeInTheDocument();
   expect(screen.getByTestId("feedback-widget")).toBeInTheDocument();
+  expect(screen.getByTestId("theme-toggle")).toBeInTheDocument();
   expect(screen.getByTestId("cookie-banner")).toBeInTheDocument();
   expect(screen.getByTestId("analytics")).toBeInTheDocument();
   expect(screen.getByTestId("speed-insights")).toBeInTheDocument();
