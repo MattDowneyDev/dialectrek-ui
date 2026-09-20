@@ -17,6 +17,7 @@ const Footer = () => {
         </span>{" "}
         — learn a language, your way
       </div>
+      <div className="footer-copyright">© {new Date().getFullYear()} DialecTrek</div>
       <div className="footer-links">
         <Link href="/privacy" className="footer-link-btn">
           Privacy policy

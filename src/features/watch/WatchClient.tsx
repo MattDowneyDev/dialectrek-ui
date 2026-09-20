@@ -6,7 +6,7 @@ import Button from "../../components/Button";
 import EmptyState from "../../components/EmptyState";
 import PageHeader from "../../components/PageHeader";
 import type { LanguageDefinition } from "../../languages/registry";
-import { compareVideos, dislikeVideo, fetchVideos, likeVideo } from "./api";
+import { compareVideos, dislikeVideo, fetchRelatedVideos, fetchVideos, likeVideo } from "./api";
 import CompareThumb from "./CompareThumb";
 import DifficultyBadge from "./DifficultyBadge";
 import {
@@ -90,6 +90,7 @@ const WatchClient = ({
   const [dislikedIds, setDislikedIds] = useState<Set<string>>(new Set());
   const [confirmation, setConfirmation] = useState<string | null>(null);
   const [isFindingRandom, setIsFindingRandom] = useState(false);
+  const [relatedVideos, setRelatedVideos] = useState<Video[]>([]);
 
   // Filter, sort, and which video is open all live in the URL rather than
   // component state -- that's what makes the browser's back button land
@@ -105,7 +106,7 @@ const WatchClient = ({
   const randomVideoLabel =
     filterLevel === "all"
       ? "Watch random video"
-      : `Watch random ${levelLabel[filterLevel]} video`;
+      : `Watch random ${filterLevel.toUpperCase()} video`;
 
   // Clears any leftover confirmation whenever the video in the URL changes
   // -- including when it's cleared by the back button -- so a stale
@@ -240,6 +241,36 @@ const WatchClient = ({
       : null;
 
   const visibleVideos = videos;
+
+  // Fetches the "more from this creator" rail whenever the open video
+  // changes. Depends on just the id (not the whole activeVideo object,
+  // which gets a new identity every time `videos` is replaced below) so
+  // merging the results into `videos` doesn't turn around and re-trigger
+  // this same effect.
+  useEffect(() => {
+    if (!activeVideo) {
+      setRelatedVideos([]);
+      return;
+    }
+    let cancelled = false;
+    setRelatedVideos([]);
+    fetchRelatedVideos(code, activeVideo.id).then((related) => {
+      if (cancelled) return;
+      setRelatedVideos(related);
+      // Merged in the same way watchRandomVideo merges its pick, so clicking
+      // one of these cards finds a match in `videos` instead of bouncing
+      // back to the browse grid.
+      setVideos((prev) => {
+        const missing = related.filter(
+          (video) => !prev.some((existing) => existing.id === video.id),
+        );
+        return missing.length > 0 ? [...prev, ...missing] : prev;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [code, activeVideo?.id]);
 
   // Pushed (not replaced) so it lands as a new history entry -- that's
   // what lets the browser back button pop back to the browse view.
@@ -452,13 +483,24 @@ const WatchClient = ({
                 <p>{confirmation}</p>
               </div>
             )}
+
+            {relatedVideos.length > 0 && (
+              <div className="watch-related">
+                <h2>More from {activeVideo.channel}</h2>
+                <div className="watch-related-grid">
+                  {relatedVideos.map((video) => (
+                    <VideoCard key={video.id} video={video} onSelect={openVideo} />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </>
       ) : (
         <>
           <PageHeader
             title="Watch"
-            subtitle={`Comprehensible input from native ${definition.displayName} speakers on YouTube, sorted by level so you always understand enough to follow along.`}
+            subtitle={`Comprehensible input from native ${definition.displayName} speakers on YouTube, sorted by level so you can always follow along.`}
           />
 
           <div className="watch-toolbar">

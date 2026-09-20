@@ -63,6 +63,21 @@ export const fetchVideo = async (
   }
 };
 
+export const fetchRelatedVideos = async (
+  language: string,
+  videoId: string,
+): Promise<Video[]> => {
+  try {
+    const response = await axios.get<ApiVideo[]>(
+      `${BASE_URL}/${language}/videos/${videoId}/related`,
+    );
+    return response.data.map(toVideo);
+  } catch (error) {
+    console.error("error fetching related videos:", error);
+    return [];
+  }
+};
+
 export const likeVideo = async (
   language: string,
   videoId: string,

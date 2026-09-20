@@ -500,7 +500,7 @@
   flex-wrap: wrap;
   justify-content: center;
   gap: 20px;
-  max-width: 1240px;
+  max-width: 960px;
   margin: 0 auto;
 }
 
@@ -513,9 +513,9 @@
 .action-card {
   position: relative;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
   text-align: left;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -530,6 +530,11 @@
     border-color 0.15s ease;
   flex: 1 1 calc(33.333% - 13.333px);
   max-width: calc(33.333% - 13.333px);
+  /* Flexbox only equalizes height within a single wrapped row, so without
+     this, a row with a longer description ends up taller than a row whose
+     cards all have shorter copy -- min-height keeps every card the same
+     size regardless of which row it wraps onto. */
+  min-height: 180px;
 }
 
 @media (max-width: 860px) {
@@ -568,10 +573,53 @@
   background: var(--color-accent-2);
 }
 
+.action-cards .action-card:nth-child(5)::before {
+  background: var(--color-success);
+}
+
 .action-card:hover {
   transform: translateY(-4px);
   box-shadow: var(--shadow-lg);
   border-color: var(--color-primary);
+}
+
+.action-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.action-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.action-cards .action-card:nth-child(2) .action-card-icon {
+  background: var(--color-accent-3-light);
+  color: var(--color-accent-3);
+}
+
+.action-cards .action-card:nth-child(3) .action-card-icon {
+  background: var(--color-accent-4-light);
+  color: var(--color-accent-4);
+}
+
+.action-cards .action-card:nth-child(4) .action-card-icon {
+  background: var(--color-accent-2-light);
+  color: var(--color-accent-2);
+}
+
+.action-cards .action-card:nth-child(5) .action-card-icon {
+  background: var(--color-success-light);
+  color: var(--color-success);
 }
 
 .action-card h3 {
@@ -2518,6 +2566,10 @@ a.language-card:hover {
   color: var(--color-text);
 }
 
+.footer-copyright {
+  font-size: 0.8rem;
+}
+
 .footer-links {
   display: flex;
   flex-wrap: wrap;
@@ -3160,6 +3212,7 @@ a.language-card:hover {
   align-items: center;
   gap: 14px;
   text-align: center;
+  margin-top: 16px;
 }
 
 .watch-compare-thumbs {
@@ -3228,6 +3281,23 @@ a.language-card:hover {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.watch-related {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.watch-related h2 {
+  font-size: 1.1rem;
+}
+
+.watch-related-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
 }
 
 .watch-compare-thumb-title {
