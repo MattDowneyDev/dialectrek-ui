@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import ActionCard from "../../components/ActionCard";
+import { BookIcon, GridIcon, SearchIcon, StackIcon, WatchIcon } from "../../components/ActionCardIcons";
 import { LANGUAGES } from "../../languages/registry";
 import { pageMetadata } from "../../lib/seo";
 
@@ -60,6 +61,7 @@ const HomePage = async ({ params }: PageProps) => {
             to={`/${language}/watch`}
             title="Watch videos"
             description="Comprehensible input from real native speakers on YouTube, sorted to match your level."
+            icon={<WatchIcon />}
           />
           <ActionCard
             to={`/${language}/verbs`}
@@ -69,6 +71,7 @@ const HomePage = async ({ params }: PageProps) => {
                 ? "Browse the verb list and find a conjugation fast."
                 : "Coming soon."
             }
+            icon={<SearchIcon />}
           />
           <ActionCard
             to={`/${language}/conjugate`}
@@ -78,11 +81,13 @@ const HomePage = async ({ params }: PageProps) => {
                 ? "Quiz yourself on the tenses and verb types you choose."
                 : "Coming soon."
             }
+            icon={<GridIcon />}
           />
           <ActionCard
             to={`/${language}/flashcards`}
             title="Study flashcards"
             description="Flip through the most common words until they stick."
+            icon={<StackIcon />}
           />
           <ActionCard
             to={`/${language}/grammar`}
@@ -92,6 +97,7 @@ const HomePage = async ({ params }: PageProps) => {
                 ? "Understand the concepts behind the conjugations."
                 : "Coming soon."
             }
+            icon={<BookIcon />}
           />
         </div>
       </div>

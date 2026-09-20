@@ -1,7 +1,15 @@
 import axios from "axios";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { BASE_URL } from "../../../languages/api";
-import { PAGE_SIZE, compareVideos, dislikeVideo, fetchVideo, fetchVideos, likeVideo } from "../api";
+import {
+  PAGE_SIZE,
+  compareVideos,
+  dislikeVideo,
+  fetchRelatedVideos,
+  fetchVideo,
+  fetchVideos,
+  likeVideo,
+} from "../api";
 
 vi.mock("axios", () => ({
   default: { get: vi.fn(), post: vi.fn() },
@@ -74,6 +82,30 @@ describe("fetchVideo", () => {
   test("returns undefined on failure", async () => {
     mockedAxios.get.mockRejectedValueOnce(new Error("not found"));
     await expect(fetchVideo("es", "missing")).resolves.toBeUndefined();
+  });
+});
+
+describe("fetchRelatedVideos", () => {
+  test("maps snake_case fields to camelCase Video objects", async () => {
+    mockedAxios.get.mockResolvedValueOnce({ data: [apiVideo({ id: "v2" })] });
+    const result = await fetchRelatedVideos("es", "v1");
+    expect(mockedAxios.get).toHaveBeenCalledWith(`${BASE_URL}/es/videos/v1/related`);
+    expect(result).toEqual([
+      {
+        id: "v2",
+        youtubeId: "yt1",
+        title: "Title",
+        channel: "Channel",
+        durationSeconds: 120,
+        difficultyScore: 900,
+        likeCount: 3,
+      },
+    ]);
+  });
+
+  test("returns an empty array instead of throwing on failure", async () => {
+    mockedAxios.get.mockRejectedValueOnce(new Error("network error"));
+    await expect(fetchRelatedVideos("es", "v1")).resolves.toEqual([]);
   });
 });
 

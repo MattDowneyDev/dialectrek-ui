@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { useSearchParams } from "next/navigation";
 import WatchClient from "../WatchClient";
-import { compareVideos, dislikeVideo, fetchVideos, likeVideo } from "../api";
+import { compareVideos, dislikeVideo, fetchRelatedVideos, fetchVideos, likeVideo } from "../api";
 import {
   getSessionId,
   persistDislikedIds,
@@ -93,6 +93,7 @@ beforeEach(() => {
   window.IntersectionObserver = FakeIntersectionObserver as unknown as typeof IntersectionObserver;
   setSearchParams("");
   vi.mocked(fetchVideos).mockResolvedValue({ items: [], hasMore: false });
+  vi.mocked(fetchRelatedVideos).mockResolvedValue([]);
   vi.mocked(getSessionId).mockReturnValue("session-1");
   vi.mocked(readLikedIds).mockReturnValue(new Set());
   vi.mocked(readDislikedIds).mockReturnValue(new Set());
@@ -129,7 +130,7 @@ describe("initial data", () => {
     expect(fetchVideos).not.toHaveBeenCalled();
   });
 
-  test("merges the initial active video into the list when it's not already there", () => {
+  test("merges the initial active video into the list when it's not already there", async () => {
     setSearchParams("video=v2");
     render(
       <WatchClient
@@ -141,6 +142,7 @@ describe("initial data", () => {
       />,
     );
     expect(screen.getByRole("heading", { name: "Video Two" })).toBeInTheDocument();
+    await act(async () => {});
   });
 
   test("does not duplicate the initial active video when it's already in the initial list", () => {
@@ -315,7 +317,7 @@ describe("opening and leaving a video", () => {
     expect(mockPush).toHaveBeenCalledWith("/es/watch?video=v1");
   });
 
-  test("renders the player, badge, and vote buttons for the active video", () => {
+  test("renders the player, badge, and vote buttons for the active video", async () => {
     setSearchParams("video=v1");
     render(
       <WatchClient
@@ -331,9 +333,12 @@ describe("opening and leaving a video", () => {
     expect(screen.getByTestId("youtube-player")).toHaveTextContent("yt1");
     expect(screen.getByRole("button", { name: /2/ })).toBeInTheDocument();
     expect(screen.getByLabelText("Dislike")).toBeInTheDocument();
+    // Flushes the related-videos fetch this video triggers, so its mocked
+    // promise resolves inside act() instead of after the test returns.
+    await act(async () => {});
   });
 
-  test("renders the placeholder icon instead of the player for a placeholder video", () => {
+  test("renders the placeholder icon instead of the player for a placeholder video", async () => {
     setSearchParams("video=v1");
     render(
       <WatchClient
@@ -346,6 +351,7 @@ describe("opening and leaving a video", () => {
     );
     expect(screen.queryByTestId("youtube-player")).not.toBeInTheDocument();
     expect(document.querySelector(".watch-player-frame svg")).toBeInTheDocument();
+    await act(async () => {});
   });
 
   test("the back link returns to the browse grid", async () => {
@@ -364,7 +370,7 @@ describe("opening and leaving a video", () => {
     expect(mockPush).toHaveBeenCalledWith("/es/watch");
   });
 
-  test("shows a prompt instead of compare thumbs for the first video of a session", () => {
+  test("shows a prompt instead of compare thumbs for the first video of a session", async () => {
     setSearchParams("video=v1");
     render(
       <WatchClient
@@ -376,6 +382,100 @@ describe("opening and leaving a video", () => {
       />,
     );
     expect(screen.getByText("Watch at least one more video to start ranking.")).toBeInTheDocument();
+    await act(async () => {});
+  });
+});
+
+describe("more from this creator", () => {
+  test("fetches and renders other videos from the same channel", async () => {
+    vi.mocked(fetchRelatedVideos).mockResolvedValue([
+      makeVideo({ id: "v2", title: "Second Video", channel: "Channel One" }),
+    ]);
+    setSearchParams("video=v1");
+    render(
+      <WatchClient
+        code="es"
+        definition={definition}
+        initialVideos={[makeVideo({ id: "v1", channel: "Channel One" })]}
+        initialHasMore={false}
+        initialSeed={1}
+      />,
+    );
+    expect(fetchRelatedVideos).toHaveBeenCalledWith("es", "v1");
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "More from Channel One" })).toBeInTheDocument(),
+    );
+    expect(screen.getByRole("heading", { name: "Second Video" })).toBeInTheDocument();
+  });
+
+  test("shows nothing when the channel has no other videos", async () => {
+    vi.mocked(fetchRelatedVideos).mockResolvedValue([]);
+    setSearchParams("video=v1");
+    render(
+      <WatchClient
+        code="es"
+        definition={definition}
+        initialVideos={[makeVideo({ id: "v1", channel: "Channel One" })]}
+        initialHasMore={false}
+        initialSeed={1}
+      />,
+    );
+    await act(async () => {});
+    expect(screen.queryByText(/More from/)).not.toBeInTheDocument();
+  });
+
+  test("selecting a related video opens it as the active video", async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetchRelatedVideos).mockResolvedValue([
+      makeVideo({ id: "v2", title: "Second Video", channel: "Channel One" }),
+    ]);
+    setSearchParams("video=v1");
+    render(
+      <WatchClient
+        code="es"
+        definition={definition}
+        initialVideos={[makeVideo({ id: "v1", channel: "Channel One" })]}
+        initialHasMore={false}
+        initialSeed={1}
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Second Video" })).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole("heading", { name: "Second Video" }));
+    expect(mockPush).toHaveBeenCalledWith("/es/watch?video=v2");
+  });
+
+  test("refetches when a different video becomes active", async () => {
+    setSearchParams("video=v1");
+    const { rerender } = render(
+      <WatchClient
+        code="es"
+        definition={definition}
+        initialVideos={[
+          makeVideo({ id: "v1", channel: "Channel One" }),
+          makeVideo({ id: "v2", channel: "Channel Two" }),
+        ]}
+        initialHasMore={false}
+        initialSeed={1}
+      />,
+    );
+    await waitFor(() => expect(fetchRelatedVideos).toHaveBeenCalledWith("es", "v1"));
+
+    setSearchParams("video=v2");
+    rerender(
+      <WatchClient
+        code="es"
+        definition={definition}
+        initialVideos={[
+          makeVideo({ id: "v1", channel: "Channel One" }),
+          makeVideo({ id: "v2", channel: "Channel Two" }),
+        ]}
+        initialHasMore={false}
+        initialSeed={1}
+      />,
+    );
+    await waitFor(() => expect(fetchRelatedVideos).toHaveBeenCalledWith("es", "v2"));
   });
 });
 
@@ -457,6 +557,7 @@ describe("comparison flow", () => {
       <WatchClient code="es" definition={definition} initialVideos={twoVideos} initialHasMore={false} initialSeed={1} />,
     );
     expect(screen.queryByText("Thanks for ranking!")).not.toBeInTheDocument();
+    await act(async () => {});
   });
 });
 
@@ -644,7 +745,7 @@ describe("watch random video", () => {
     expect(mockPush).not.toHaveBeenCalled();
   });
 
-  test("shows a level-specific label when a level filter is active", () => {
+  test("shows a level-specific label when a level filter is active", async () => {
     setSearchParams("video=v1&level=b1");
     render(
       <WatchClient
@@ -655,7 +756,8 @@ describe("watch random video", () => {
         initialSeed={1}
       />,
     );
-    expect(screen.getByRole("button", { name: "Watch random B1 · Intermediate video" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Watch random B1 video" })).toBeInTheDocument();
+    await act(async () => {});
   });
 
   test("a second click while already finding a random video is ignored", async () => {
