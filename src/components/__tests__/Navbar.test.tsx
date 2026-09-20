@@ -2,23 +2,17 @@ import { beforeEach, expect, test, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { usePathname } from "next/navigation";
-import { ThemeProvider } from "../../context/ThemeContext";
 import Navbar from "../Navbar";
 
 vi.mock("next/navigation", () => ({ usePathname: vi.fn() }));
 
-const renderNavbar = () =>
-  render(
-    <ThemeProvider>
-      <Navbar />
-    </ThemeProvider>,
-  );
+const renderNavbar = () => render(<Navbar />);
 
 beforeEach(() => {
   vi.mocked(usePathname).mockReturnValue("/");
 });
 
-test("shows only the brand and theme toggle when there's no active language", () => {
+test("shows only the brand when there's no active language", () => {
   renderNavbar();
   expect(screen.getByRole("link", { name: /DialecTrek/ })).toHaveAttribute("href", "/");
   expect(screen.queryByRole("link", { name: "Verbs" })).not.toBeInTheDocument();
@@ -130,12 +124,39 @@ test("does not close the mobile menu when clicking inside the nav", async () => 
   expect(toggle).toHaveAttribute("aria-expanded", "true");
 });
 
-test("toggles the theme and updates the toggle button's label", async () => {
-  vi.mocked(usePathname).mockReturnValue("/");
+test("shows no language switcher when there's no active language", () => {
+  renderNavbar();
+  expect(screen.queryByRole("button", { name: "Switch language" })).not.toBeInTheDocument();
+});
+
+test("shows a language switcher listing the other enabled languages", async () => {
+  vi.mocked(usePathname).mockReturnValue("/es/verbs");
   const user = userEvent.setup();
   renderNavbar();
 
-  const themeToggle = screen.getByRole("button", { name: "Switch to dark mode" });
-  await user.click(themeToggle);
-  expect(screen.getByRole("button", { name: "Switch to light mode" })).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Switch language" }));
+
+  const frenchLink = screen.getByRole("link", { name: /French/ });
+  expect(frenchLink).toHaveAttribute("href", "/fr/verbs");
+  expect(screen.queryByRole("link", { name: /Spanish/ })).not.toBeInTheDocument();
 });
+
+test("switches to a language's home page when there's no section in the path", async () => {
+  vi.mocked(usePathname).mockReturnValue("/es");
+  const user = userEvent.setup();
+  renderNavbar();
+
+  await user.click(screen.getByRole("button", { name: "Switch language" }));
+  expect(screen.getByRole("link", { name: /French/ })).toHaveAttribute("href", "/fr");
+});
+
+test("closes the language dropdown after picking a language", async () => {
+  vi.mocked(usePathname).mockReturnValue("/es/verbs");
+  const user = userEvent.setup();
+  renderNavbar();
+
+  await user.click(screen.getByRole("button", { name: "Switch language" }));
+  await user.click(screen.getByRole("link", { name: /French/ }));
+  expect(screen.queryByRole("link", { name: /French/ })).not.toBeInTheDocument();
+});
+
