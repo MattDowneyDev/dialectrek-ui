@@ -173,6 +173,30 @@ const WatchClient = ({
     persistDailyWatchSeconds(watchedSeconds);
   }, [watchedSeconds]);
 
+  // On the wide/sidebar layout the ranking box sits next to the video and
+  // should span exactly from the top of the iframe to the bottom of the
+  // "watch random" button below it, but that height is a 16:9 aspect
+  // ratio plus two rows of flexible-width content, so it isn't known
+  // ahead of time. Mirroring the main column's actual rendered height
+  // onto a CSS variable on the sidebar lets the ranking box match it with
+  // `height: var(--watch-main-height)` (see App.css) -- writing to the
+  // DOM directly here instead of React state avoids a re-render on every
+  // resize tick.
+  const mainRef = useRef<HTMLDivElement>(null);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const mainEl = mainRef.current;
+    const sidebarEl = sidebarRef.current;
+    if (!mainEl || !sidebarEl) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) {
+        sidebarEl.style.setProperty("--watch-main-height", `${entry.contentRect.height}px`);
+      }
+    });
+    observer.observe(mainEl);
+    return () => observer.disconnect();
+  }, [activeVideoId]);
+
   // GoalBar's onChangeTarget always passes a real number here -- allowNoLimit
   // is left off below, so "no limit" is never an option a viewer can pick.
   const handleChangeWatchGoal = (minutes: number | null) => {
@@ -490,92 +514,96 @@ const WatchClient = ({
           />
 
           <div className="watch-player">
-            <div className="watch-player-frame">
-              {/* Guards against a row with no real video behind it (a
-                  "placeholder-*" id) -- falls back to the static icon instead
-                  of asking YouTube to embed a video that doesn't exist. */}
-              {activeVideo.youtubeId.startsWith("placeholder-") ? (
-                <PlayIcon />
-              ) : (
-                <YouTubePlayer
-                  videoId={activeVideo.youtubeId}
-                  onPlayerStateChange={handlePlayerStateChange}
-                />
+            <div className="watch-player-main" ref={mainRef}>
+              <div className="watch-player-frame">
+                {/* Guards against a row with no real video behind it (a
+                    "placeholder-*" id) -- falls back to the static icon instead
+                    of asking YouTube to embed a video that doesn't exist. */}
+                {activeVideo.youtubeId.startsWith("placeholder-") ? (
+                  <PlayIcon />
+                ) : (
+                  <YouTubePlayer
+                    videoId={activeVideo.youtubeId}
+                    onPlayerStateChange={handlePlayerStateChange}
+                  />
+                )}
+              </div>
+
+              <div className="watch-player-info">
+                <div className="watch-vote-buttons">
+                  <button
+                    type="button"
+                    className={`watch-like-button${likedIds.has(activeVideo.id) ? " liked" : ""}`}
+                    onClick={() => toggleLike(activeVideo.id)}
+                    aria-pressed={likedIds.has(activeVideo.id)}
+                    disabled={isMutating}
+                  >
+                    <ThumbsUpIcon filled={likedIds.has(activeVideo.id)} />
+                    {activeVideo.likeCount}
+                  </button>
+                  <button
+                    type="button"
+                    className={`watch-dislike-button${dislikedIds.has(activeVideo.id) ? " disliked" : ""}`}
+                    onClick={() => toggleDislike(activeVideo.id)}
+                    aria-pressed={dislikedIds.has(activeVideo.id)}
+                    aria-label="Dislike"
+                    disabled={isMutating}
+                  >
+                    <ThumbsDownIcon filled={dislikedIds.has(activeVideo.id)} />
+                  </button>
+                </div>
+                <DifficultyBadge score={activeVideo.difficultyScore} />
+              </div>
+
+              <div className="watch-random-row">
+                <Button
+                  variant="outline"
+                  onClick={watchRandomVideo}
+                  disabled={isFindingRandom}
+                >
+                  {isFindingRandom ? "Finding a video..." : randomVideoLabel}
+                </Button>
+              </div>
+            </div>
+
+            <div className="watch-player-sidebar" ref={sidebarRef}>
+              {!confirmation &&
+                (lastVideo ? (
+                  <div className="watch-compare">
+                    <p>
+                      Which video was{" "}
+                      <span className="watch-compare-emphasis">harder</span>?
+                    </p>
+                    <div className="watch-compare-thumbs">
+                      <CompareThumb
+                        video={lastVideo}
+                        onSelect={() =>
+                          castComparisonVote(lastVideo.id, activeVideo.id)
+                        }
+                        disabled={isMutating}
+                      />
+                      <span className="watch-compare-vs">vs</span>
+                      <CompareThumb
+                        video={activeVideo}
+                        onSelect={() =>
+                          castComparisonVote(activeVideo.id, lastVideo.id)
+                        }
+                        disabled={isMutating}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="watch-compare">
+                    <p>Watch at least one more video to start ranking.</p>
+                  </div>
+                ))}
+
+              {confirmation && (
+                <div className="watch-compare">
+                  <p>{confirmation}</p>
+                </div>
               )}
             </div>
-
-            <div className="watch-player-info">
-              <div className="watch-vote-buttons">
-                <button
-                  type="button"
-                  className={`watch-like-button${likedIds.has(activeVideo.id) ? " liked" : ""}`}
-                  onClick={() => toggleLike(activeVideo.id)}
-                  aria-pressed={likedIds.has(activeVideo.id)}
-                  disabled={isMutating}
-                >
-                  <ThumbsUpIcon filled={likedIds.has(activeVideo.id)} />
-                  {activeVideo.likeCount}
-                </button>
-                <button
-                  type="button"
-                  className={`watch-dislike-button${dislikedIds.has(activeVideo.id) ? " disliked" : ""}`}
-                  onClick={() => toggleDislike(activeVideo.id)}
-                  aria-pressed={dislikedIds.has(activeVideo.id)}
-                  aria-label="Dislike"
-                  disabled={isMutating}
-                >
-                  <ThumbsDownIcon filled={dislikedIds.has(activeVideo.id)} />
-                </button>
-              </div>
-              <DifficultyBadge score={activeVideo.difficultyScore} />
-            </div>
-
-            <div className="watch-random-row">
-              <Button
-                variant="outline"
-                onClick={watchRandomVideo}
-                disabled={isFindingRandom}
-              >
-                {isFindingRandom ? "Finding a video..." : randomVideoLabel}
-              </Button>
-            </div>
-
-            {!confirmation &&
-              (lastVideo ? (
-                <div className="watch-compare">
-                  <p>
-                    Which video was{" "}
-                    <span className="watch-compare-emphasis">harder</span>?
-                  </p>
-                  <div className="watch-compare-thumbs">
-                    <CompareThumb
-                      video={lastVideo}
-                      onSelect={() =>
-                        castComparisonVote(lastVideo.id, activeVideo.id)
-                      }
-                      disabled={isMutating}
-                    />
-                    <span className="watch-compare-vs">vs</span>
-                    <CompareThumb
-                      video={activeVideo}
-                      onSelect={() =>
-                        castComparisonVote(activeVideo.id, lastVideo.id)
-                      }
-                      disabled={isMutating}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="watch-compare">
-                  <p>Watch at least one more video to start ranking.</p>
-                </div>
-              ))}
-
-            {confirmation && (
-              <div className="watch-compare">
-                <p>{confirmation}</p>
-              </div>
-            )}
 
             {relatedVideos.length > 0 && (
               <div className="watch-related">
