@@ -502,7 +502,7 @@
   flex-wrap: wrap;
   justify-content: center;
   gap: 20px;
-  max-width: 960px;
+  max-width: var(--container-width);
   margin: 0 auto;
 }
 
@@ -834,8 +834,9 @@ a.language-card:hover {
 /* ---------- Verbs page ---------- */
 
 .verbs-toolbar {
-  max-width: 480px;
+  max-width: var(--container-width);
   margin: 24px auto 0;
+  padding: 0 24px;
 }
 
 .search-input {
@@ -855,11 +856,15 @@ a.language-card:hover {
   box-shadow: 0 0 0 3px var(--color-primary-light);
 }
 
+/* A single flex column of "verb -- translation" rows stretched across
+   the full container width left huge gaps in each row once this
+   widened to match the rest of the site -- a grid lets rows wrap into
+   multiple columns instead, so the extra width is actually used. */
 .verbs-list {
-  max-width: 720px;
+  max-width: var(--container-width);
   margin: 32px auto 64px;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 8px;
   padding: 0 24px;
 }
@@ -889,7 +894,7 @@ a.language-card:hover {
 /* ---------- Verb detail page ---------- */
 
 .verb-detail {
-  max-width: 880px;
+  max-width: var(--container-width);
   margin: 24px auto 64px;
   padding: 0 24px;
 }
@@ -1970,11 +1975,10 @@ a.language-card:hover {
 }
 
 /* The category-picker step has no fixed-width flashcard to match, so it
-   gets more room than the practice view -- otherwise its chips wrap into a
-   tall, narrow column instead of a few wide rows. Matches .practice-card's
-   width, which conjugate's own setup wizard uses for the same reason. */
+   gets the full site container width instead -- otherwise its chips
+   wrap into a tall, narrow column instead of a few wide rows. */
 .flashcards-card--setup {
-  max-width: 640px;
+  max-width: var(--container-width);
 }
 
 .direction-toggle {
@@ -2215,12 +2219,16 @@ a.language-card:hover {
 
 /* ---------- Grammar page ---------- */
 
+/* A grid (like the card layouts elsewhere on the site) rather than a
+   single flex column, so each title+summary card gets a sensible width
+   instead of stretching edge-to-edge once this matched the site's
+   wider container. */
 .grammar-topics-list {
-  max-width: 720px;
+  max-width: var(--container-width);
   margin: 32px auto 64px;
   padding: 0 24px;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 12px;
 }
 
@@ -2289,7 +2297,7 @@ a.language-card:hover {
 }
 
 .grammar-page-body {
-  max-width: 800px;
+  max-width: var(--container-width);
   margin: 24px auto 64px;
   padding: 0 24px;
 }
