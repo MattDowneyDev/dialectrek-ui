@@ -30,8 +30,8 @@ const HomePage = async ({ params }: PageProps) => {
       <div className="hero">
         <div className="hero-media">
           <Image
-            src="/DialecTrekHeroImage.png"
-            alt="A traveler pauses on a mountain trail marked with icons for reading, conversation, and practice, following it toward a flag at the summit"
+            src="/DialecTrekHeroImage.jpeg"
+            alt="A hiker pauses on a mountain trail, looking out over green valleys and a winding path toward distant peaks"
             fill
             priority
             sizes="100vw"
@@ -41,7 +41,6 @@ const HomePage = async ({ params }: PageProps) => {
         </div>
         <div className="hero-inner">
           <div className="hero-text">
-            <span className="hero-flag-emoji">{definition.flagEmoji}</span>
             <h1>{definition.displayName}</h1>
             <p>
               Watch comprehensible input videos, practice verb conjugations, and
