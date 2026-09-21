@@ -22,8 +22,8 @@ const LanguagePickerPage = () => {
       <div className="hero">
         <div className="hero-media">
           <Image
-            src="/DialecTrekHeroImage.png"
-            alt="A traveler pauses on a mountain trail marked with icons for reading, conversation, and practice, following it toward a flag at the summit"
+            src="/DialecTrekHeroImage.jpeg"
+            alt="A hiker pauses on a mountain trail, looking out over green valleys and a winding path toward distant peaks"
             fill
             priority
             sizes="100vw"
