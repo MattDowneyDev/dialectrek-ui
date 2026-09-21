@@ -3,6 +3,7 @@
 import { useEffect, useRef, type ChangeEvent, type FormEvent } from "react";
 import Button from "../../components/Button";
 import QuestionCard from "../../components/QuestionCard";
+import { CheckIcon, XIcon } from "../../components/icons";
 import type { Tense, VerbConjugation } from "../../languages/types";
 
 type ConjugationInputProps = {
@@ -18,7 +19,6 @@ type ConjugationInputProps = {
   onShowHint: () => void;
   showAnswer: boolean;
   onShowAnswer: () => void;
-  hasMissed: boolean;
   questionKey: number;
 };
 
@@ -35,7 +35,6 @@ const ConjugationInput = ({
   onShowHint,
   showAnswer,
   onShowAnswer,
-  hasMissed,
   questionKey,
 }: ConjugationInputProps) => {
   const isCorrect = isCorrectAnswer === "true";
@@ -107,79 +106,107 @@ const ConjugationInput = ({
       </div>
 
       <form onSubmit={handleSubmitGuess}>
-        <input
-          ref={inputRef}
-          type="text"
-          className={`quiz-input${inputStateClass}`}
-          id="conjugationGuess"
-          placeholder="Enter your translation"
-          onChange={handleInputChange}
-          value={userGuess}
-          autoComplete="off"
-          readOnly={isLocked}
-        />
-
-        {!isLocked && (
-          <div className="accent-toolbar">
-            {accentChars.map((char) => (
-              <button
-                key={char}
-                type="button"
-                className="accent-btn"
-                tabIndex={-1}
-                onClick={() => insertChar(char)}
-              >
-                {char}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <div className="quiz-actions">
-          {!isLocked && <Button type="submit">Check Answer</Button>}
-
-          {hasMissed && !showAnswer && !isCorrect && (
-            <Button
-              variant="ghost"
-              onClick={showHint ? onShowAnswer : onShowHint}
+        <div className="quiz-input-wrap">
+          <input
+            ref={inputRef}
+            type="text"
+            className={`quiz-input${inputStateClass}`}
+            id="conjugationGuess"
+            placeholder="Enter your translation"
+            onChange={handleInputChange}
+            value={userGuess}
+            autoComplete="off"
+            readOnly={isLocked}
+          />
+          {/* Replaces the old separate "Correct!"/"Incorrect" banner -- the
+              result now reads right off the input it's about, instead of a
+              second element the eye has to jump to. Purely decorative (the
+              border color already carries the same signal); the sr-only
+              status text below carries it for screen readers. */}
+          {isCorrectAnswer !== "" && (
+            <span
+              className={`quiz-input-icon${isCorrect ? " correct" : " incorrect"}`}
+              aria-hidden="true"
             >
-              {showHint ? "Show Answer" : "Show Hint"}
-            </Button>
+              {isCorrect ? <CheckIcon /> : <XIcon />}
+            </span>
           )}
+        </div>
+        <span className="sr-only" role="status">
+          {isCorrectAnswer === "true"
+            ? "Correct!"
+            : isCorrectAnswer === "false"
+              ? "Incorrect"
+              : ""}
+        </span>
 
-          {(hasMissed || isCorrect) && (
-            <Button
-              variant="outline"
-              onClick={() => fetchRandomVerbConjugation()}
+        {/* Always mounted (visibility toggled, not conditionally rendered)
+            so it keeps reserving its row's height even once locked --
+            otherwise the card shrinks right as the hint text is trying to
+            grow into that same space, and everything below the card
+            visibly jumps. */}
+        <div className={`accent-toolbar${isLocked ? " accent-toolbar--hidden" : ""}`}>
+          {accentChars.map((char) => (
+            <button
+              key={char}
+              type="button"
+              className="accent-btn"
+              tabIndex={-1}
+              onClick={() => insertChar(char)}
             >
+              {char}
+            </button>
+          ))}
+        </div>
+
+        {/* Show Hint/Show Answer stays available the whole time a question
+            is open, not just after a miss -- someone who doesn't know a
+            verb at all shouldn't have to submit a wrong guess first just to
+            unlock it. Collapses down to just "Next Verb" once resolved. */}
+        <div className="quiz-actions">
+          {isCorrect || showAnswer ? (
+            <Button variant="outline" onClick={() => fetchRandomVerbConjugation()}>
               Next Verb
             </Button>
+          ) : (
+            <>
+              <Button type="submit">Check Answer</Button>
+              <Button variant="ghost" onClick={showHint ? onShowAnswer : onShowHint}>
+                {showHint ? "Show Answer" : "Show Hint"}
+              </Button>
+            </>
           )}
         </div>
       </form>
 
-      {isCorrectAnswer === "true" && (
-        <div className="feedback-banner correct">✓ Correct!</div>
-      )}
-      {isCorrectAnswer === "false" && (
-        <div className="feedback-banner incorrect">✗ Incorrect</div>
-      )}
-      {showHint && randomVerb?.infinitive_target && (
-        <div className="hint-text">
-          Hint: the infinitive is <strong>{randomVerb.infinitive_target}</strong>
-        </div>
-      )}
-      {showAnswer && randomVerb?.form_target && (
-        <div className="hint-text">
-          Answer: <strong>{randomVerb.form_target}</strong>
-          {randomVerb.form_target_alt && (
+      {/* Both lines are always mounted (visibility toggled, one overlaid on
+          the other via CSS grid -- see .hint-area) rather than conditionally
+          rendered, so the card reserves each one's real height from the
+          start instead of a guessed value. Only ever one visible at a time:
+          the answer already implies the hint, so there's no need to keep
+          the hint line around once the answer is up. */}
+      <div className="hint-area">
+        <div className={`hint-text${showAnswer ? "" : " hint-text--hidden"}`}>
+          {randomVerb?.form_target && (
             <>
-              {" "}
-              (or <strong>{randomVerb.form_target_alt}</strong>)
+              Answer: <strong>{randomVerb.form_target}</strong>
+              {randomVerb.form_target_alt && (
+                <>
+                  {" "}
+                  (or <strong>{randomVerb.form_target_alt}</strong>)
+                </>
+              )}
             </>
           )}
         </div>
-      )}
+        <div className={`hint-text${showHint && !showAnswer ? "" : " hint-text--hidden"}`}>
+          {randomVerb?.infinitive_target && (
+            <>
+              Hint: the infinitive is <strong>{randomVerb.infinitive_target}</strong>
+            </>
+          )}
+        </div>
+      </div>
     </QuestionCard>
   );
 };

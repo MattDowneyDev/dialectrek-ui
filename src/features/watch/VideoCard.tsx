@@ -1,7 +1,8 @@
 import { useState } from "react";
 import DifficultyBadge from "./DifficultyBadge";
 import { PlayIcon, ThumbsUpIcon } from "./icons";
-import { formatDuration, type Video } from "./types";
+import { formatDuration } from "../../lib/duration";
+import type { Video } from "./types";
 
 type VideoCardProps = {
   video: Video;

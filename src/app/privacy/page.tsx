@@ -13,7 +13,7 @@ const PrivacyPage = () => {
     <div className="page">
       <PageHeader
         title="Privacy Policy"
-        subtitle="Last updated August 2026"
+        subtitle="Last updated September 2026"
       />
 
       <div className="about-content">
@@ -24,6 +24,14 @@ const PrivacyPage = () => {
           personal information. If you use the feedback widget, we receive
           whatever you write and, only if you choose to share it, your email
           address so we can reply.
+        </p>
+        <p>
+          Some features remember things only in your own browser&apos;s local
+          storage -- your daily practice goals and progress for Watch,
+          Flashcards, and Conjugate, which videos you&apos;ve liked or
+          disliked, and your theme and cookie preferences. None of that is
+          sent to us; it stays on your device and resets if you clear your
+          browser&apos;s site data.
         </p>
 
         <h2>Cookies, analytics, and embedded video</h2>

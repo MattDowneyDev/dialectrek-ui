@@ -4,7 +4,9 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import Button from "../../components/Button";
 import EmptyState from "../../components/EmptyState";
+import GoalBar from "../../components/GoalBar";
 import PageHeader from "../../components/PageHeader";
+import { formatDuration } from "../../lib/duration";
 import type { LanguageDefinition } from "../../languages/registry";
 import { compareVideos, dislikeVideo, fetchRelatedVideos, fetchVideos, likeVideo } from "./api";
 import CompareThumb from "./CompareThumb";
@@ -16,14 +18,18 @@ import {
   ThumbsUpIcon,
 } from "./icons";
 import {
+  DEFAULT_WATCH_GOAL_SECONDS,
   getSessionId,
+  persistDailyWatchSeconds,
   persistDislikedIds,
   persistLikedIds,
+  persistWatchGoalSeconds,
+  readDailyWatchSeconds,
   readDislikedIds,
   readLikedIds,
+  readWatchGoalSeconds,
 } from "./session";
 import {
-  formatDuration,
   isDifficultyLevel,
   isSortMode,
   levelLabel,
@@ -34,6 +40,16 @@ import {
 import VideoCard from "./VideoCard";
 import WatchIntroModal from "./WatchIntroModal";
 import YouTubePlayer from "./YouTubePlayer";
+
+// YouTube's IFrame API reports player state as YT.PlayerState.PLAYING, but
+// that's a property read on the real, global YT object the API script
+// defines -- unavailable in tests, and not guaranteed to exist the instant
+// this fires either. These numeric player states have been stable and
+// publicly documented for years, so comparing against the literal is safe.
+const YOUTUBE_PLAYING_STATE = 1;
+
+// How much each +/- click on the goal stepper adjusts by, in minutes.
+const GOAL_STEP_MINUTES = 5;
 
 type WatchClientProps = {
   code: string;
@@ -91,6 +107,17 @@ const WatchClient = ({
   const [confirmation, setConfirmation] = useState<string | null>(null);
   const [isFindingRandom, setIsFindingRandom] = useState(false);
   const [relatedVideos, setRelatedVideos] = useState<Video[]>([]);
+  // Counts up toward watchGoalSeconds across the whole day (every video
+  // watched today, not just this visit or the one currently open) -- only
+  // ticks while the embed reports PLAYING (see handlePlayerStateChange
+  // below), so paused/buffering/not-yet-loaded time isn't watch time.
+  // Persisted per calendar day (see readDailyWatchSeconds), so it survives a
+  // reload or a second tab today but resets once a new day starts.
+  const [watchedSeconds, setWatchedSeconds] = useState(0);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  // The goal itself (unlike progress toward it) is a standing preference --
+  // read from localStorage once mounted, same as likedIds/dislikedIds below.
+  const [watchGoalSeconds, setWatchGoalSeconds] = useState(DEFAULT_WATCH_GOAL_SECONDS);
 
   // Filter, sort, and which video is open all live in the URL rather than
   // component state -- that's what makes the browser's back button land
@@ -123,7 +150,37 @@ const WatchClient = ({
   useEffect(() => {
     setLikedIds(readLikedIds());
     setDislikedIds(readDislikedIds());
+    setWatchGoalSeconds(readWatchGoalSeconds());
+    setWatchedSeconds(readDailyWatchSeconds());
   }, []);
+
+  // Mirrors every tick to localStorage so today's progress survives a
+  // reload -- cheap enough to write once a second, and simpler than only
+  // persisting on unmount (which a closed tab or crash would skip).
+  //
+  // Skips its own very first (mount-time) run: watchedSeconds still holds
+  // its initial 0 at that point, since the read-from-storage effect above
+  // only *schedules* the real value rather than applying it immediately --
+  // persisting on that first pass would momentarily clobber today's real
+  // total with 0 the instant this component (re)mounts, e.g. after
+  // navigating to another tab and back.
+  const hasPersistedOnce = useRef(false);
+  useEffect(() => {
+    if (!hasPersistedOnce.current) {
+      hasPersistedOnce.current = true;
+      return;
+    }
+    persistDailyWatchSeconds(watchedSeconds);
+  }, [watchedSeconds]);
+
+  // GoalBar's onChangeTarget always passes a real number here -- allowNoLimit
+  // is left off below, so "no limit" is never an option a viewer can pick.
+  const handleChangeWatchGoal = (minutes: number | null) => {
+    if (minutes === null) return;
+    const seconds = minutes * 60;
+    setWatchGoalSeconds(seconds);
+    persistWatchGoalSeconds(seconds);
+  };
 
   // Tracks which (code, level, sort) combo `videos` currently holds data
   // for. The server already fetched a page matching the URL's filters on
@@ -272,6 +329,26 @@ const WatchClient = ({
     };
   }, [code, activeVideo?.id]);
 
+  // A newly opened player hasn't reported PLAYING yet, so this always
+  // starts a video switch as "not playing" -- without it, a stale true left
+  // over from whatever was playing before would keep the goal bar ticking
+  // through the gap even though nothing is actually loaded yet.
+  useEffect(() => {
+    setIsVideoPlaying(false);
+  }, [activeVideo?.id]);
+
+  useEffect(() => {
+    if (!isVideoPlaying) return;
+    const interval = setInterval(() => {
+      setWatchedSeconds((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isVideoPlaying]);
+
+  const handlePlayerStateChange = (state: YT.PlayerState) => {
+    setIsVideoPlaying(state === YOUTUBE_PLAYING_STATE);
+  };
+
   // Pushed (not replaced) so it lands as a new history entry -- that's
   // what lets the browser back button pop back to the browse view.
   const openVideo = (id: string) => updateParams({ video: id }, true);
@@ -390,6 +467,19 @@ const WatchClient = ({
   return (
     <div className="page">
       <WatchIntroModal />
+
+      <div className="goal-bar-wrap">
+        <GoalBar
+          elapsedSeconds={watchedSeconds}
+          targetSeconds={watchGoalSeconds}
+          onChangeTarget={handleChangeWatchGoal}
+          caption="Today's watch goal"
+          editLabel="Change today's watch goal"
+          subjectLabel="goal"
+          completeLabel="Goal reached!"
+          ctaLabel="Set a watch goal"
+        />
+      </div>
       {activeVideo ? (
         <>
           <PageHeader
@@ -407,7 +497,10 @@ const WatchClient = ({
               {activeVideo.youtubeId.startsWith("placeholder-") ? (
                 <PlayIcon />
               ) : (
-                <YouTubePlayer videoId={activeVideo.youtubeId} />
+                <YouTubePlayer
+                  videoId={activeVideo.youtubeId}
+                  onPlayerStateChange={handlePlayerStateChange}
+                />
               )}
             </div>
 

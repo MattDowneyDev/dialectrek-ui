@@ -1,19 +1,25 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import PageHeader from "../../components/PageHeader";
-import QuestionCard from "../../components/QuestionCard";
-import Button from "../../components/Button";
-import TimerStat from "../../components/TimerStat";
-import CounterStat from "../../components/CounterStat";
+import GoalBar from "../../components/GoalBar";
+import PracticeHistoryTable, {
+  type PracticeHistoryRow,
+} from "../../components/PracticeHistoryTable";
 import VerbTypeSelection from "./VerbTypeSelection";
 import MoodSelection, { type MoodChoice } from "./MoodSelection";
 import TenseSelection from "./TenseSelection";
 import ConjugationInput from "./ConjugationInput";
-import Confetti from "../../components/Confetti";
 import { fetchRandomVerbConjugation as fetchVerb } from "../../languages/api";
 import type { LanguageDefinition } from "../../languages/registry";
 import type { Mood, Polarity, Tense, VerbConjugation } from "../../languages/types";
+import {
+  DEFAULT_CONJUGATE_GOAL_SECONDS,
+  persistConjugateGoalSeconds,
+  persistDailyConjugateSeconds,
+  readConjugateGoalSeconds,
+  readDailyConjugateSeconds,
+} from "./session";
 
 // The imperative doesn't have indicative/subjunctive forms -- it has
 // affirmative/negative ones instead, resolved by resolvePolarity below.
@@ -75,54 +81,55 @@ const ConjugateClient = ({ code, definition, initialTenses }: ConjugateClientPro
   const [userGuess, setUserGuess] = useState<string>("");
   const [showHint, setShowHint] = useState<boolean>(false);
   const [showAnswer, setShowAnswer] = useState<boolean>(false);
-  const [hasMissed, setHasMissed] = useState<boolean>(false);
-  const [correctCount, setCorrectCount] = useState<number>(0);
-  const [questionsSeen, setQuestionsSeen] = useState<number>(0);
-  const [startTime, setStartTime] = useState<number | null>(null);
+  // Identifies which verb is currently on screen, for ConjugationInput's
+  // animationKey.
+  const [questionIndex, setQuestionIndex] = useState<number>(0);
+  // Newest-first log of every verb answered this session, shown as a table
+  // below the practice card instead of a single running score tile.
+  const [history, setHistory] = useState<PracticeHistoryRow[]>([]);
+  // Counts up toward goalSeconds across the whole day (every practice visit
+  // today, not just this one) -- only ticks while actively conjugating
+  // (setup wizard finished), same idea as Watch only ticking while a video
+  // is playing. Persisted per calendar day (see readDailyConjugateSeconds),
+  // so it survives a reload or a second tab today but resets once a new day
+  // starts.
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
-  const [elapsedOffsetSeconds, setElapsedOffsetSeconds] = useState<number>(0);
-  const [scoreBump, setScoreBump] = useState<boolean>(false);
-  const [timeLimitSeconds, setTimeLimitSeconds] = useState<
-    number | null | undefined
-  >(undefined);
-  const [isTimeUp, setIsTimeUp] = useState<boolean>(false);
-  const [showConfetti, setShowConfetti] = useState<boolean>(false);
-  const [showSummary, setShowSummary] = useState<boolean>(false);
+  // The goal itself (unlike progress toward it) is a standing preference --
+  // read from localStorage once mounted.
+  const [goalSeconds, setGoalSeconds] = useState<number>(DEFAULT_CONJUGATE_GOAL_SECONDS);
 
-  const remainingSeconds =
-    timeLimitSeconds != null
-      ? Math.max(timeLimitSeconds - elapsedSeconds, 0)
-      : null;
-  // "No limit" counts up from the moment it was chosen, not from whenever
-  // the session actually started (which may have been earlier, while the
-  // timer still read "Set timer").
-  const displayedElapsedSeconds = elapsedSeconds - elapsedOffsetSeconds;
+  const isActiveConjugation = stepIndex === steps.length;
+
+  // Picks up today's progress and the standing goal from a previous visit --
+  // without this, both would start over at 0/default on every reload even
+  // though the real totals are still sitting in localStorage.
+  useEffect(() => {
+    setGoalSeconds(readConjugateGoalSeconds());
+    setElapsedSeconds(readDailyConjugateSeconds());
+  }, []);
 
   useEffect(() => {
-    if (startTime === null || isTimeUp) return;
+    if (!isActiveConjugation) return;
     const interval = setInterval(() => {
-      setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
+      setElapsedSeconds((prev) => prev + 1);
     }, 1000);
     return () => clearInterval(interval);
-  }, [startTime, isTimeUp]);
+  }, [isActiveConjugation]);
 
+  // Mirrors every tick to localStorage so today's progress survives a
+  // reload. Skips its own very first (mount-time) run: elapsedSeconds still
+  // holds its initial 0 at that point, since the read-from-storage effect
+  // above only *schedules* the real value rather than applying it
+  // immediately -- persisting on that first pass would momentarily clobber
+  // today's real total with 0 the instant this component (re)mounts.
+  const hasPersistedOnce = useRef(false);
   useEffect(() => {
-    if (timeLimitSeconds == null || isTimeUp) return;
-    if (elapsedSeconds >= timeLimitSeconds) {
-      setIsTimeUp(true);
+    if (!hasPersistedOnce.current) {
+      hasPersistedOnce.current = true;
+      return;
     }
-  }, [elapsedSeconds, timeLimitSeconds, isTimeUp]);
-
-  useEffect(() => {
-    if (!isTimeUp) return;
-    setShowConfetti(true);
-    const summaryTimeout = setTimeout(() => setShowSummary(true), 500);
-    const confettiTimeout = setTimeout(() => setShowConfetti(false), 2800);
-    return () => {
-      clearTimeout(summaryTimeout);
-      clearTimeout(confettiTimeout);
-    };
-  }, [isTimeUp]);
+    persistDailyConjugateSeconds(elapsedSeconds);
+  }, [elapsedSeconds]);
 
   useEffect(() => {
     if (skipSetup) {
@@ -132,13 +139,6 @@ const ConjugateClient = ({ code, definition, initialTenses }: ConjugateClientPro
     // (irregular verbs, mood, tenses) doesn't change afterward.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    if (correctCount === 0) return;
-    setScoreBump(true);
-    const timeout = setTimeout(() => setScoreBump(false), 500);
-    return () => clearTimeout(timeout);
-  }, [correctCount]);
 
   const handleIrregularityQuestion = (userResponse: boolean) => {
     setUseIrregularVerbs(userResponse);
@@ -171,26 +171,13 @@ const ConjugateClient = ({ code, definition, initialTenses }: ConjugateClientPro
     fetchRandomVerbConjugation();
   };
 
-  const handleConjugateAgain = () => {
-    setCorrectCount(0);
-    setQuestionsSeen(0);
-    setStartTime(null);
-    setElapsedSeconds(0);
-    setElapsedOffsetSeconds(0);
-    setIsTimeUp(false);
-    setShowConfetti(false);
-    setShowSummary(false);
-    setTimeLimitSeconds(undefined);
-    fetchRandomVerbConjugation();
-  };
-
-  const handleChooseTimeLimit = (minutes: number | null) => {
-    if (minutes === null) {
-      setElapsedOffsetSeconds(elapsedSeconds);
-      setTimeLimitSeconds(null);
-    } else {
-      setTimeLimitSeconds(elapsedSeconds + minutes * 60);
-    }
+  // GoalBar's onChangeTarget always passes a real number here -- allowNoLimit
+  // is left off below, so "no limit" is never an option a viewer can pick.
+  const handleChangeGoal = (minutes: number | null) => {
+    if (minutes === null) return;
+    const seconds = minutes * 60;
+    setGoalSeconds(seconds);
+    persistConjugateGoalSeconds(seconds);
   };
 
   const resolveTense = (): Tense =>
@@ -229,6 +216,23 @@ const ConjugateClient = ({ code, definition, initialTenses }: ConjugateClientPro
     }
   };
 
+  const recordHistory = (correct: boolean) => {
+    if (!randomVerb) return;
+    setHistory((prev) => [
+      {
+        id: crypto.randomUUID(),
+        correct,
+        cells: [
+          randomVerb.infinitive_target ?? "",
+          randomVerb.pronoun_english ?? "",
+          randomVerb.tense ? definition.tenseLabels[randomVerb.tense] : "",
+          randomVerb.form_target ?? "",
+        ],
+      },
+      ...prev,
+    ]);
+  };
+
   const handleSubmitGuess = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -248,17 +252,19 @@ const ConjugateClient = ({ code, definition, initialTenses }: ConjugateClientPro
         normalizedGuess === randomVerb.form_target_alt.trim().toLowerCase());
     setIsCorrectAnswer(correct ? "true" : "false");
     if (correct) {
-      setCorrectCount((prev) => prev + 1);
-    } else {
-      setHasMissed(true);
+      recordHistory(true);
     }
   };
 
+  // Giving up (rather than answering correctly) also resolves the question
+  // -- logs it right away instead of waiting for "Next Verb", same as a
+  // correct guess does in handleSubmitGuess.
+  const handleShowAnswer = () => {
+    setShowAnswer(true);
+    recordHistory(false);
+  };
+
   const fetchRandomVerbConjugation = async () => {
-    // Only counts as a "seen" question once the previous one has been
-    // answered (correctly or given up on) -- not for the very first
-    // question of the session, matching Flashcards starting at 0/0.
-    const isAdvancingPastQuestion = isCorrectAnswer === "true" || hasMissed;
     const tense = resolveTense();
     const verb = await fetchVerb(
       code,
@@ -274,49 +280,33 @@ const ConjugateClient = ({ code, definition, initialTenses }: ConjugateClientPro
     setUserGuess("");
     setShowHint(false);
     setShowAnswer(false);
-    setHasMissed(false);
-    if (isAdvancingPastQuestion) {
-      setQuestionsSeen((prev) => prev + 1);
-    }
-    setStartTime((prev) => prev ?? Date.now());
+    setQuestionIndex((prev) => prev + 1);
   };
 
   const isSetupStep = stepIndex < steps.length;
-  const isActiveConjugation = stepIndex === steps.length;
   const currentStep = isSetupStep ? steps[stepIndex] : null;
 
   return (
     <div className="page">
+      <div className="goal-bar-wrap">
+        <GoalBar
+          elapsedSeconds={elapsedSeconds}
+          targetSeconds={goalSeconds}
+          onChangeTarget={handleChangeGoal}
+          caption="Today's conjugate goal"
+          editLabel="Change today's conjugate goal"
+          subjectLabel="goal"
+          completeLabel="Goal reached!"
+          ctaLabel="Set a conjugate goal"
+        />
+      </div>
+
       <PageHeader
         title="Conjugate"
         subtitle="Answer a few quick questions, then start conjugating."
       />
 
       <div className="practice-card">
-        {startTime !== null && (
-          <div className="practice-stats">
-            <TimerStat
-              seconds={remainingSeconds ?? displayedElapsedSeconds}
-              label={remainingSeconds !== null ? "left" : "time"}
-              lowTime={remainingSeconds !== null && remainingSeconds <= 10 && !isTimeUp}
-              currentLimitMinutes={
-                timeLimitSeconds === undefined
-                  ? undefined
-                  : timeLimitSeconds === null
-                    ? null
-                    : Math.round((timeLimitSeconds - elapsedSeconds) / 60)
-              }
-              onSetLimitMinutes={isTimeUp ? undefined : handleChooseTimeLimit}
-            />
-            <CounterStat
-              count={correctCount}
-              total={questionsSeen}
-              label="correct"
-              bump={scoreBump}
-            />
-          </div>
-        )}
-
         {isSetupStep && (
           <div className="step-progress">
             {steps.map((_, index) => (
@@ -365,7 +355,7 @@ const ConjugateClient = ({ code, definition, initialTenses }: ConjugateClientPro
           />
         )}
 
-        {isActiveConjugation && !isTimeUp && (
+        {isActiveConjugation && (
           <ConjugationInput
             randomVerb={randomVerb}
             tenseLabels={definition.tenseLabels}
@@ -378,31 +368,17 @@ const ConjugateClient = ({ code, definition, initialTenses }: ConjugateClientPro
             showHint={showHint}
             onShowHint={() => setShowHint(true)}
             showAnswer={showAnswer}
-            onShowAnswer={() => setShowAnswer(true)}
-            hasMissed={hasMissed}
-            questionKey={questionsSeen}
+            onShowAnswer={handleShowAnswer}
+            questionKey={questionIndex}
           />
         )}
-
-        {showConfetti && <Confetti />}
-
-        {isTimeUp && (
-          <QuestionCard title="Time's up! 🎉">
-            <div className={`time-up-content${showSummary ? " visible" : ""}`}>
-              <div className="time-up-score">
-                {correctCount}
-                <span className="time-up-score-of">/{questionsSeen}</span>
-              </div>
-              <p className="time-up-summary">
-                {questionsSeen > 0
-                  ? `${Math.round((correctCount / questionsSeen) * 100)}% correct`
-                  : "No questions answered yet"}
-              </p>
-              <Button onClick={handleConjugateAgain}>Conjugate Again</Button>
-            </div>
-          </QuestionCard>
-        )}
       </div>
+
+      <PracticeHistoryTable
+        title="Verbs practiced"
+        headers={["Verb", "Pronoun", "Tense", "Answer"]}
+        rows={history}
+      />
     </div>
   );
 };

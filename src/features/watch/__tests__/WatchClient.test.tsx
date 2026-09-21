@@ -6,10 +6,14 @@ import WatchClient from "../WatchClient";
 import { compareVideos, dislikeVideo, fetchRelatedVideos, fetchVideos, likeVideo } from "../api";
 import {
   getSessionId,
+  persistDailyWatchSeconds,
   persistDislikedIds,
   persistLikedIds,
+  persistWatchGoalSeconds,
+  readDailyWatchSeconds,
   readDislikedIds,
   readLikedIds,
+  readWatchGoalSeconds,
 } from "../session";
 import type { LanguageDefinition } from "../../../languages/registry";
 import type { Video } from "../types";
@@ -28,8 +32,19 @@ vi.mock("next/navigation", () => ({
 vi.mock("../api");
 vi.mock("../session");
 
+let latestPlayerStateChange: ((state: number) => void) | null = null;
+
 vi.mock("../YouTubePlayer", () => ({
-  default: ({ videoId }: { videoId: string }) => <div data-testid="youtube-player">{videoId}</div>,
+  default: ({
+    videoId,
+    onPlayerStateChange,
+  }: {
+    videoId: string;
+    onPlayerStateChange?: (state: number) => void;
+  }) => {
+    latestPlayerStateChange = onPlayerStateChange ?? null;
+    return <div data-testid="youtube-player">{videoId}</div>;
+  },
 }));
 
 vi.mock("../WatchIntroModal", () => ({ default: () => null }));
@@ -90,6 +105,7 @@ const triggerIntersection = () => {
 
 beforeEach(() => {
   ioCallback = null;
+  latestPlayerStateChange = null;
   window.IntersectionObserver = FakeIntersectionObserver as unknown as typeof IntersectionObserver;
   setSearchParams("");
   vi.mocked(fetchVideos).mockResolvedValue({ items: [], hasMore: false });
@@ -97,6 +113,8 @@ beforeEach(() => {
   vi.mocked(getSessionId).mockReturnValue("session-1");
   vi.mocked(readLikedIds).mockReturnValue(new Set());
   vi.mocked(readDislikedIds).mockReturnValue(new Set());
+  vi.mocked(readWatchGoalSeconds).mockReturnValue(600);
+  vi.mocked(readDailyWatchSeconds).mockReturnValue(0);
   vi.mocked(likeVideo).mockResolvedValue(undefined);
   vi.mocked(dislikeVideo).mockResolvedValue(undefined);
   vi.mocked(compareVideos).mockResolvedValue(undefined);
@@ -476,6 +494,299 @@ describe("more from this creator", () => {
       />,
     );
     await waitFor(() => expect(fetchRelatedVideos).toHaveBeenCalledWith("es", "v2"));
+  });
+});
+
+describe("watch goal bar", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const goalLabel = () => document.querySelector(".goal-bar-label")?.textContent;
+
+  test("shows 0:00 / 10:00 on the browse grid before any video is opened", () => {
+    render(
+      <WatchClient
+        code="es"
+        definition={definition}
+        initialVideos={[makeVideo()]}
+        initialHasMore={false}
+        initialSeed={1}
+      />,
+    );
+    expect(goalLabel()).toBe("0:00 / 10:00");
+  });
+
+  test("counts up only while the player reports PLAYING", async () => {
+    setSearchParams("video=v1");
+    render(
+      <WatchClient
+        code="es"
+        definition={definition}
+        initialVideos={[makeVideo({ id: "v1" })]}
+        initialHasMore={false}
+        initialSeed={1}
+      />,
+    );
+
+    act(() => latestPlayerStateChange?.(1)); // YT.PlayerState.PLAYING
+    act(() => vi.advanceTimersByTime(3000));
+    expect(goalLabel()).toBe("0:03 / 10:00");
+
+    act(() => latestPlayerStateChange?.(2)); // YT.PlayerState.PAUSED
+    act(() => vi.advanceTimersByTime(3000));
+    expect(goalLabel()).toBe("0:03 / 10:00");
+    await act(async () => {});
+  });
+
+  test("keeps accumulating across a switch to a different video", async () => {
+    setSearchParams("video=v1");
+    const { rerender } = render(
+      <WatchClient
+        code="es"
+        definition={definition}
+        initialVideos={[makeVideo({ id: "v1" }), makeVideo({ id: "v2" })]}
+        initialHasMore={false}
+        initialSeed={1}
+      />,
+    );
+
+    act(() => latestPlayerStateChange?.(1));
+    act(() => vi.advanceTimersByTime(5000));
+    expect(goalLabel()).toBe("0:05 / 10:00");
+
+    setSearchParams("video=v2");
+    rerender(
+      <WatchClient
+        code="es"
+        definition={definition}
+        initialVideos={[makeVideo({ id: "v1" }), makeVideo({ id: "v2" })]}
+        initialHasMore={false}
+        initialSeed={1}
+      />,
+    );
+    // Still 0:05 -- a fresh video hasn't reported PLAYING yet, so the switch
+    // itself doesn't add time, but the total from before isn't lost either.
+    expect(goalLabel()).toBe("0:05 / 10:00");
+
+    act(() => latestPlayerStateChange?.(1));
+    act(() => vi.advanceTimersByTime(2000));
+    expect(goalLabel()).toBe("0:07 / 10:00");
+    // Flushes the related-videos fetch this video switch kicked off, so its
+    // mocked promise resolves inside act() instead of after the test returns.
+    await act(async () => {});
+  });
+
+  test("shows a goal-reached message once the target is hit", async () => {
+    setSearchParams("video=v1");
+    render(
+      <WatchClient
+        code="es"
+        definition={definition}
+        initialVideos={[makeVideo({ id: "v1" })]}
+        initialHasMore={false}
+        initialSeed={1}
+      />,
+    );
+
+    act(() => latestPlayerStateChange?.(1));
+    act(() => vi.advanceTimersByTime(600_000)); // the full 10-minute goal
+    expect(goalLabel()).toBe("Goal reached! 10:00");
+    expect(document.querySelector(".goal-bar-fill--complete")).toBeInTheDocument();
+    await act(async () => {});
+  });
+
+  test("starts from today's already-stored progress instead of 0", () => {
+    vi.mocked(readDailyWatchSeconds).mockReturnValue(120);
+    render(
+      <WatchClient
+        code="es"
+        definition={definition}
+        initialVideos={[makeVideo()]}
+        initialHasMore={false}
+        initialSeed={1}
+      />,
+    );
+    expect(goalLabel()).toBe("2:00 / 10:00");
+  });
+
+  test("does not clobber today's stored progress with 0 on mount", () => {
+    // Regression test: watchedSeconds starts at 0 and the read-from-storage
+    // effect only *schedules* the real value rather than applying it
+    // immediately, so a naive "persist on every change" effect would fire
+    // once on mount with the still-stale 0 and briefly overwrite today's
+    // real total -- observable as progress resetting whenever this
+    // component remounts (e.g. navigating to another tab and back).
+    vi.mocked(readDailyWatchSeconds).mockReturnValue(120);
+    render(
+      <WatchClient
+        code="es"
+        definition={definition}
+        initialVideos={[makeVideo()]}
+        initialHasMore={false}
+        initialSeed={1}
+      />,
+    );
+    expect(persistDailyWatchSeconds).not.toHaveBeenCalledWith(0);
+  });
+
+  test("persists progress to localStorage as it ticks", async () => {
+    setSearchParams("video=v1");
+    render(
+      <WatchClient
+        code="es"
+        definition={definition}
+        initialVideos={[makeVideo({ id: "v1" })]}
+        initialHasMore={false}
+        initialSeed={1}
+      />,
+    );
+
+    act(() => latestPlayerStateChange?.(1));
+    act(() => vi.advanceTimersByTime(4000));
+    expect(persistDailyWatchSeconds).toHaveBeenLastCalledWith(4);
+    await act(async () => {});
+  });
+
+  test("clicking the bar opens a goal stepper seeded with the current goal", () => {
+    render(
+      <WatchClient
+        code="es"
+        definition={definition}
+        initialVideos={[makeVideo()]}
+        initialHasMore={false}
+        initialSeed={1}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Change today's watch goal" }));
+    expect(screen.getByLabelText("goal in minutes")).toHaveValue(10);
+  });
+
+  test("the +/- buttons adjust and persist the goal by 5 minutes, without closing", () => {
+    render(
+      <WatchClient
+        code="es"
+        definition={definition}
+        initialVideos={[makeVideo()]}
+        initialHasMore={false}
+        initialSeed={1}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Change today's watch goal" }));
+    fireEvent.click(screen.getByRole("button", { name: "Increase goal by 5 minutes" }));
+
+    expect(goalLabel()).toBe("0:00 / 15:00");
+    expect(persistWatchGoalSeconds).toHaveBeenCalledWith(900);
+    expect(screen.getByLabelText("goal in minutes")).toHaveValue(15);
+
+    fireEvent.click(screen.getByRole("button", { name: "Decrease goal by 5 minutes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Decrease goal by 5 minutes" }));
+    expect(goalLabel()).toBe("0:00 / 5:00");
+    expect(persistWatchGoalSeconds).toHaveBeenLastCalledWith(300);
+  });
+
+  test("the stepper won't go below 5 minutes", () => {
+    render(
+      <WatchClient
+        code="es"
+        definition={definition}
+        initialVideos={[makeVideo()]}
+        initialHasMore={false}
+        initialSeed={1}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Change today's watch goal" }));
+    for (let i = 0; i < 5; i++) {
+      fireEvent.click(screen.getByRole("button", { name: "Decrease goal by 5 minutes" }));
+    }
+    expect(goalLabel()).toBe("0:00 / 5:00");
+  });
+
+  test("typing a custom value and blurring commits and persists it", () => {
+    render(
+      <WatchClient
+        code="es"
+        definition={definition}
+        initialVideos={[makeVideo()]}
+        initialHasMore={false}
+        initialSeed={1}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Change today's watch goal" }));
+    fireEvent.change(screen.getByLabelText("goal in minutes"), { target: { value: "45" } });
+    fireEvent.blur(screen.getByLabelText("goal in minutes"));
+
+    expect(goalLabel()).toBe("0:00 / 45:00");
+    expect(persistWatchGoalSeconds).toHaveBeenCalledWith(2700);
+  });
+
+  test("submitting the input (Enter) commits the same way as blurring", () => {
+    render(
+      <WatchClient
+        code="es"
+        definition={definition}
+        initialVideos={[makeVideo()]}
+        initialHasMore={false}
+        initialSeed={1}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Change today's watch goal" }));
+    fireEvent.change(screen.getByLabelText("goal in minutes"), { target: { value: "20" } });
+    fireEvent.submit(screen.getByLabelText("goal in minutes").closest("form") as HTMLFormElement);
+
+    expect(goalLabel()).toBe("0:00 / 20:00");
+    expect(persistWatchGoalSeconds).toHaveBeenCalledWith(1200);
+  });
+
+  test("clearing the input and blurring reverts to the current goal instead of applying nothing", () => {
+    render(
+      <WatchClient
+        code="es"
+        definition={definition}
+        initialVideos={[makeVideo()]}
+        initialHasMore={false}
+        initialSeed={1}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Change today's watch goal" }));
+    fireEvent.change(screen.getByLabelText("goal in minutes"), { target: { value: "" } });
+    fireEvent.blur(screen.getByLabelText("goal in minutes"));
+
+    expect(persistWatchGoalSeconds).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("goal in minutes")).toHaveValue(10);
+    expect(goalLabel()).toBe("0:00 / 10:00");
+  });
+
+  test("clicking outside the dropdown closes it without changing the goal", () => {
+    render(
+      <WatchClient
+        code="es"
+        definition={definition}
+        initialVideos={[makeVideo()]}
+        initialHasMore={false}
+        initialSeed={1}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Change today's watch goal" }));
+    expect(screen.getByLabelText("goal in minutes")).toBeInTheDocument();
+
+    // The backdrop is what actually receives a real click outside the
+    // dropdown -- jsdom doesn't hit-test by visual stacking the way a real
+    // browser would, so the test has to target it directly.
+    fireEvent.click(document.querySelector(".timer-dropdown-backdrop") as Element);
+    expect(screen.queryByLabelText("goal in minutes")).not.toBeInTheDocument();
+    expect(goalLabel()).toBe("0:00 / 10:00");
   });
 });
 

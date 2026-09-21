@@ -13,7 +13,7 @@ import { ThemeProvider } from "../context/ThemeContext";
 import { jsonLdScript } from "../lib/jsonLd";
 
 const SITE_DESCRIPTION =
-  "DialecTrek — look up verb conjugations and practice with flashcards to build your vocabulary.";
+  "DialecTrek — learn Spanish and French through comprehensible input videos from real native speakers, verb conjugation lookup and practice, grammar lessons, and vocabulary flashcards.";
 
 export const metadata: Metadata = {
   metadataBase: process.env.NEXT_PUBLIC_SITE_URL
@@ -65,7 +65,12 @@ export const viewport: Viewport = {
 };
 
 const RootLayout = ({ children }: { children: React.ReactNode }) => (
-  <html lang="en" data-theme="light" data-scroll-behavior="smooth" suppressHydrationWarning>
+  <html
+    lang="en"
+    data-theme="light"
+    data-scroll-behavior="smooth"
+    suppressHydrationWarning
+  >
     <head>
       {/* Runs before first paint so the resolved theme (saved preference,
           falling back to the OS setting) applies immediately instead of
