@@ -29,11 +29,11 @@ const WatchIntroModal = () => {
   return (
     <WatchHelpModal title="We Need Your Help!" onClose={dismiss}>
       <p>
-        This section is new so the difficuly rankings may be innaccurate.
-        Here's what you can do:
+        This section is new so the difficuly rankings may be innaccurate. Here's
+        what you can do:
       </p>
-      <p>1. Watch lots of videos</p>
-      <p>2. Rank their difficulty under the video</p>
+      <p>1. Watch lots of videos.</p>
+      <p>2. Rank their difficulty compared to the last video.</p>
       <p>
         That's it! Every ranking makes it more accurate for you and everyone
         else.
