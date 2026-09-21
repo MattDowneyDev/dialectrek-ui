@@ -3,6 +3,7 @@ import {
   persistGoalSeconds,
   readDailyProgressSeconds,
   readGoalSeconds,
+  todayDateString,
 } from "../../lib/dailyGoal";
 
 const STORAGE_KEY = "dialectrek-watch-session-id";
@@ -10,6 +11,18 @@ const LIKED_IDS_KEY = "dialectrek-watch-liked-ids";
 const DISLIKED_IDS_KEY = "dialectrek-watch-disliked-ids";
 const WATCH_GOAL_SECONDS_KEY = "dialectrek-watch-goal-seconds";
 const DAILY_WATCH_PROGRESS_KEY = "dialectrek-watch-daily-progress";
+const WATCH_INTRO_SEEN_KEY = "dialectrek-watch-intro-seen";
+
+// The ranking explainer only stays dismissed for the rest of today, same
+// reset as the daily goal progress above -- shared by the auto-popup
+// (WatchIntroModal) and the on-demand "how rankings work" button
+// (WatchHelpButton), so dismissing either one suppresses both for today.
+export const hasSeenWatchIntroToday = (): boolean =>
+  window.localStorage.getItem(WATCH_INTRO_SEEN_KEY) === todayDateString();
+
+export const markWatchIntroSeenToday = () => {
+  window.localStorage.setItem(WATCH_INTRO_SEEN_KEY, todayDateString());
+};
 
 // The goal itself is a standing preference (so choosing "15 minutes" sticks
 // for next time), independent of the daily progress toward it, which resets

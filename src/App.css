@@ -3284,6 +3284,23 @@ a.language-card:hover {
   padding: 0 24px;
 }
 
+.watch-help-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 4px 0;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.watch-help-trigger:hover {
+  color: var(--color-primary);
+}
+
 .goal-bar {
   position: relative;
   width: 100%;
@@ -3680,6 +3697,12 @@ button.goal-bar-track:active {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.watch-help-graphic {
+  display: flex;
+  justify-content: center;
+  padding: 4px 0;
 }
 
 .watch-intro-modal h3 {

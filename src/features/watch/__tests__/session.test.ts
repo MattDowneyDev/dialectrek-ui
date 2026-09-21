@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   DEFAULT_WATCH_GOAL_SECONDS,
   getSessionId,
+  hasSeenWatchIntroToday,
+  markWatchIntroSeenToday,
   persistDailyWatchSeconds,
   persistDislikedIds,
   persistLikedIds,
@@ -103,5 +105,30 @@ describe("daily watch seconds", () => {
   test("recovers gracefully from corrupted JSON in storage", () => {
     window.localStorage.setItem("dialectrek-watch-daily-progress", "{not valid json");
     expect(readDailyWatchSeconds()).toBe(0);
+  });
+});
+
+describe("watch intro seen", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  test("has not been seen when nothing is stored", () => {
+    expect(hasSeenWatchIntroToday()).toBe(false);
+  });
+
+  test("has been seen after marking it today", () => {
+    markWatchIntroSeenToday();
+    expect(hasSeenWatchIntroToday()).toBe(true);
+  });
+
+  test("is seen again once the stored date is no longer today", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2024, 0, 1, 12, 0, 0));
+    markWatchIntroSeenToday();
+    expect(hasSeenWatchIntroToday()).toBe(true);
+
+    vi.setSystemTime(new Date(2024, 0, 2, 0, 0, 1));
+    expect(hasSeenWatchIntroToday()).toBe(false);
   });
 });
