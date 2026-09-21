@@ -38,6 +38,7 @@ import {
   type Video,
 } from "./types";
 import VideoCard from "./VideoCard";
+import WatchHelpButton from "./WatchHelpButton";
 import WatchIntroModal from "./WatchIntroModal";
 import YouTubePlayer from "./YouTubePlayer";
 
@@ -684,6 +685,8 @@ const WatchClient = ({
                 </span>
               </div>
             </div>
+
+            <WatchHelpButton />
           </div>
 
           {isLoading ? (

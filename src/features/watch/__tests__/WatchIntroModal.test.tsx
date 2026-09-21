@@ -1,6 +1,7 @@
-import { beforeEach, expect, test } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { todayDateString } from "../../../lib/dailyGoal";
 import WatchIntroModal from "../WatchIntroModal";
 
 const STORAGE_KEY = "dialectrek-watch-intro-seen";
@@ -9,15 +10,29 @@ beforeEach(() => {
   window.localStorage.clear();
 });
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 test("shows the modal the first time a browser hits the page", () => {
   render(<WatchIntroModal />);
   expect(screen.getByRole("dialog")).toBeInTheDocument();
 });
 
-test("does not show the modal once it's already been seen", () => {
-  window.localStorage.setItem(STORAGE_KEY, "1");
+test("does not show the modal again later today, once seen", () => {
+  window.localStorage.setItem(STORAGE_KEY, todayDateString());
   render(<WatchIntroModal />);
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+
+test("shows the modal again once the stored date is no longer today", () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date(2024, 0, 1, 12, 0, 0));
+  window.localStorage.setItem(STORAGE_KEY, todayDateString());
+
+  vi.setSystemTime(new Date(2024, 0, 2, 0, 0, 1));
+  render(<WatchIntroModal />);
+  expect(screen.getByRole("dialog")).toBeInTheDocument();
 });
 
 test("dismisses and persists on close button click", async () => {
@@ -25,7 +40,7 @@ test("dismisses and persists on close button click", async () => {
   render(<WatchIntroModal />);
   await user.click(screen.getByRole("button", { name: "Close" }));
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  expect(window.localStorage.getItem(STORAGE_KEY)).toBe("1");
+  expect(window.localStorage.getItem(STORAGE_KEY)).toBe(todayDateString());
 });
 
 test("dismisses on overlay click", async () => {

@@ -1,6 +1,6 @@
 import { test, expect } from "vitest";
 import { render } from "@testing-library/react";
-import { ChevronDownIcon, PlayIcon, ThumbsDownIcon, ThumbsUpIcon } from "../icons";
+import { ChevronDownIcon, InfoIcon, PlayIcon, ThumbsDownIcon, ThumbsUpIcon } from "../icons";
 
 test("PlayIcon renders an svg", () => {
   const { container } = render(<PlayIcon />);
@@ -9,6 +9,11 @@ test("PlayIcon renders an svg", () => {
 
 test("ChevronDownIcon renders an svg", () => {
   const { container } = render(<ChevronDownIcon />);
+  expect(container.querySelector("svg")).toBeInTheDocument();
+});
+
+test("InfoIcon renders an svg", () => {
+  const { container } = render(<InfoIcon />);
   expect(container.querySelector("svg")).toBeInTheDocument();
 });
 
