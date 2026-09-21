@@ -306,7 +306,9 @@ const ConjugateClient = ({ code, definition, initialTenses }: ConjugateClientPro
         subtitle="Answer a few quick questions, then start conjugating."
       />
 
-      <div className="practice-card">
+      <div
+        className={`practice-card${currentStep?.kind === "tenses" ? " practice-card--tenses" : ""}`}
+      >
         {isSetupStep && (
           <div className="step-progress">
             {steps.map((_, index) => (
