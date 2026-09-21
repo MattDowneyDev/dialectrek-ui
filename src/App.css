@@ -3158,6 +3158,19 @@ a.language-card:hover {
   gap: 20px;
 }
 
+/* Wrappers exist purely so the wide-screen layout below can lay the
+   video out and the sidebar out as two independent columns -- each
+   sized by its own content, so a tall ranking box in the sidebar never
+   drags the video's own info row down with it. At narrow widths they
+   just stack in the same order/spacing as before. */
+.watch-player-main,
+.watch-player-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
 .watch-player-frame {
   position: relative;
   aspect-ratio: 16 / 9;
@@ -3546,6 +3559,82 @@ button.goal-bar-track:active {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* Small-laptop and up: the ranking box moves beside the video instead of
+   stacking below it, and "More from" gets the full width to lay out more
+   cards per row. The main column and sidebar are independent flex items
+   (not grid rows sized against each other), so the sidebar's height
+   doesn't disturb the video's own layout. Capped at --container-width so
+   the player never runs wider than the goal-progress meter above it. */
+@media (min-width: 1100px) {
+  .watch-player {
+    max-width: var(--container-width);
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    row-gap: 40px;
+    column-gap: 32px;
+  }
+
+  .watch-player-main {
+    flex: 1 1 0;
+  }
+
+  .watch-player-sidebar {
+    flex: 0 0 300px;
+  }
+
+  .watch-random-row .btn {
+    width: 100%;
+  }
+
+  /* Matches the ranking box to the main column's rendered height (iframe
+     + info row + random-video button), kept up to date on
+     --watch-main-height by a ResizeObserver in WatchClient.tsx -- that
+     height depends on the iframe's 16:9 ratio of a flexible-width
+     column, so it isn't known from CSS alone. An exact height (not just
+     a cap) means its top lines up with the iframe's top and its bottom
+     with the random-video button's bottom, whether the box's own content
+     (the placeholder message, or two thumbnails) is shorter or taller
+     than that -- justify-content centers it when there's slack, and
+     min-height: 0 down this chain plus overflow: hidden is what lets the
+     thumbnails shrink to fit rather than overflow when there isn't.
+     margin-top: 0 drops the single-column layout's spacing, which
+     doesn't apply once this sits beside the video instead of below it. */
+  .watch-compare {
+    margin-top: 0;
+    height: var(--watch-main-height, auto);
+    overflow: hidden;
+    justify-content: center;
+  }
+
+  .watch-compare,
+  .watch-compare-thumbs,
+  .watch-compare-thumb,
+  .watch-compare-thumb-image {
+    min-height: 0;
+  }
+
+  .watch-compare-thumbs {
+    flex-direction: column;
+  }
+
+  .watch-compare-thumb {
+    max-width: none;
+  }
+
+  /* Flex items shrink by default, which was squashing the title text
+     along with the image instead of just the image -- pin it to its
+     natural size so only the thumbnail image absorbs the height cap. */
+  .watch-compare-thumb-title {
+    flex-shrink: 0;
+  }
+
+  .watch-related {
+    flex: 1 1 100%;
+    margin-top: 0;
+  }
 }
 
 .watch-load-sentinel {
