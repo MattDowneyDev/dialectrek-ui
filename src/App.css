@@ -1199,6 +1199,15 @@ a.language-card:hover {
   padding: 0 24px;
 }
 
+/* The tense-picker step is a wide chip grid, not a single question or
+   answer input like the rest of this shared wrapper's steps -- give it
+   the site's full container width so its chips spread into a few wide
+   rows instead of a tall, narrow column. Matches
+   .flashcards-card--setup's reasoning for the same shape of content. */
+.practice-card--tenses {
+  max-width: var(--container-width);
+}
+
 .practice-stats {
   display: flex;
   flex-wrap: wrap;
