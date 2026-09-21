@@ -1,6 +1,32 @@
+import {
+  persistDailyProgressSeconds,
+  persistGoalSeconds,
+  readDailyProgressSeconds,
+  readGoalSeconds,
+} from "../../lib/dailyGoal";
+
 const STORAGE_KEY = "dialectrek-watch-session-id";
 const LIKED_IDS_KEY = "dialectrek-watch-liked-ids";
 const DISLIKED_IDS_KEY = "dialectrek-watch-disliked-ids";
+const WATCH_GOAL_SECONDS_KEY = "dialectrek-watch-goal-seconds";
+const DAILY_WATCH_PROGRESS_KEY = "dialectrek-watch-daily-progress";
+
+// The goal itself is a standing preference (so choosing "15 minutes" sticks
+// for next time), independent of the daily progress toward it, which resets
+// on its own each day (see readDailyWatchSeconds/persistDailyWatchSeconds).
+export const DEFAULT_WATCH_GOAL_SECONDS = 1800;
+
+export const readWatchGoalSeconds = (): number =>
+  readGoalSeconds(WATCH_GOAL_SECONDS_KEY, DEFAULT_WATCH_GOAL_SECONDS);
+
+export const persistWatchGoalSeconds = (seconds: number) =>
+  persistGoalSeconds(WATCH_GOAL_SECONDS_KEY, seconds);
+
+export const readDailyWatchSeconds = (): number =>
+  readDailyProgressSeconds(DAILY_WATCH_PROGRESS_KEY);
+
+export const persistDailyWatchSeconds = (seconds: number) =>
+  persistDailyProgressSeconds(DAILY_WATCH_PROGRESS_KEY, seconds);
 
 // A random id scoped to this browser, used only to dedupe one viewer's
 // likes/votes on the backend (see watch.py) -- not an account, just enough

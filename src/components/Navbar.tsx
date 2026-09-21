@@ -22,10 +22,10 @@ const Navbar = () => {
   const links = activeLanguage
     ? [
         { to: `/${activeLanguage}/watch`, label: "Watch" },
-        { to: `/${activeLanguage}/verbs`, label: "Verbs" },
-        { to: `/${activeLanguage}/conjugate`, label: "Conjugate" },
-        { to: `/${activeLanguage}/grammar`, label: "Grammar" },
         { to: `/${activeLanguage}/flashcards`, label: "Flashcards" },
+        { to: `/${activeLanguage}/conjugate`, label: "Conjugate" },
+        { to: `/${activeLanguage}/verbs`, label: "Verbs" },
+        { to: `/${activeLanguage}/grammar`, label: "Grammar" },
         { to: `/${activeLanguage}/about`, label: "About" },
       ]
     : [];

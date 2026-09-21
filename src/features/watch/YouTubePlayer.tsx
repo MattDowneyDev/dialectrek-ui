@@ -17,6 +17,7 @@ declare global {
 
 type YouTubePlayerProps = {
   videoId: string;
+  onPlayerStateChange?: (state: YT.PlayerState) => void;
 };
 
 // The official way to embed -- see
@@ -42,7 +43,7 @@ const loadYouTubeApi = (): Promise<typeof YT> => {
   return apiPromise;
 };
 
-const YouTubePlayer = ({ videoId }: YouTubePlayerProps) => {
+const YouTubePlayer = ({ videoId, onPlayerStateChange }: YouTubePlayerProps) => {
   // The YouTube API doesn't render inside the element it's given -- it
   // replaces that element with its iframe. So this ref stays on a wrapper
   // React always owns, and the API gets a plain div created outside React's
@@ -50,6 +51,11 @@ const YouTubePlayer = ({ videoId }: YouTubePlayerProps) => {
   // replaced on unmount and throws a removeChild error.
   const wrapperRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YT.Player | null>(null);
+  // Kept in a ref so the player-creation effect below doesn't need to
+  // depend on it -- a new callback identity on every parent render would
+  // otherwise tear down and recreate the whole embedded player.
+  const onPlayerStateChangeRef = useRef(onPlayerStateChange);
+  onPlayerStateChangeRef.current = onPlayerStateChange;
 
   // Loading YouTube's player sets cookies from Google beyond what's needed
   // to render video, so it waits for the same cookie consent the analytics
@@ -95,6 +101,9 @@ const YouTubePlayer = ({ videoId }: YouTubePlayerProps) => {
         // respected. Nothing here hides the player chrome or YouTube
         // branding, which their embed terms require.
         playerVars: { rel: 0 },
+        events: {
+          onStateChange: (event) => onPlayerStateChangeRef.current?.(event.data),
+        },
       });
     });
 

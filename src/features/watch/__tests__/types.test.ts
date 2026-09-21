@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { formatDuration, isDifficultyLevel, isSortMode, levelForScore } from "../types";
+import { isDifficultyLevel, isSortMode, levelForScore } from "../types";
 
 describe("isDifficultyLevel", () => {
   test.each(["a1", "a2", "b1", "b2", "c1", "c2"])("accepts %s", (value) => {
@@ -52,19 +52,5 @@ describe("levelForScore", () => {
     [2000, "c2"],
   ])("maps score %i to %s", (score, level) => {
     expect(levelForScore(score)).toBe(level);
-  });
-});
-
-describe("formatDuration", () => {
-  test("formats whole minutes with zero-padded seconds", () => {
-    expect(formatDuration(120)).toBe("2:00");
-  });
-
-  test("pads single-digit seconds", () => {
-    expect(formatDuration(65)).toBe("1:05");
-  });
-
-  test("formats durations under a minute", () => {
-    expect(formatDuration(9)).toBe("0:09");
   });
 });

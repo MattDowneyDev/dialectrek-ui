@@ -39,7 +39,6 @@ const baseProps = {
   onShowHint: vi.fn(),
   showAnswer: false,
   onShowAnswer: vi.fn(),
-  hasMissed: false,
   questionKey: 0,
 };
 
@@ -144,22 +143,32 @@ test("locks the input and hides the toolbar/submit button once the answer is cor
   render(<ConjugationInput {...baseProps} randomVerb={baseVerb} isCorrectAnswer="true" />);
   expect(screen.getByPlaceholderText("Enter your translation")).toHaveAttribute("readonly");
   expect(screen.queryByRole("button", { name: "Check Answer" })).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "á" })).not.toBeInTheDocument();
-  expect(screen.getByText("✓ Correct!")).toBeInTheDocument();
+  // The toolbar stays mounted (it reserves its row's height even once
+  // locked) but is visually hidden rather than removed -- see
+  // ConjugationInput's accent-toolbar comment.
+  expect(document.querySelector(".accent-toolbar")).toHaveClass("accent-toolbar--hidden");
+  // Result now reads off an icon inline with the input rather than a
+  // separate banner -- see ConjugationInput's quiz-input-icon comment.
+  expect(document.querySelector(".quiz-input-icon")).toHaveClass("correct");
+  expect(screen.getByRole("status")).toHaveTextContent("Correct!");
 });
 
-test("marks the input incorrect and shows the incorrect feedback banner", () => {
+test("marks the input incorrect and shows an inline result icon", () => {
   render(<ConjugationInput {...baseProps} randomVerb={baseVerb} isCorrectAnswer="false" />);
   expect(screen.getByPlaceholderText("Enter your translation")).toHaveClass("incorrect");
-  expect(screen.getByText("✗ Incorrect")).toBeInTheDocument();
+  expect(document.querySelector(".quiz-input-icon")).toHaveClass("incorrect");
+  expect(screen.getByRole("status")).toHaveTextContent("Incorrect");
 });
 
-test("shows a Show Hint button after a miss, which becomes Show Answer once clicked", async () => {
+test("shows a Show Hint button from the start, alongside Check Answer, which becomes Show Answer once clicked", async () => {
   const user = userEvent.setup();
   const onShowHint = vi.fn();
   render(
-    <ConjugationInput {...baseProps} randomVerb={baseVerb} hasMissed isCorrectAnswer="false" onShowHint={onShowHint} />,
+    <ConjugationInput {...baseProps} randomVerb={baseVerb} onShowHint={onShowHint} />,
   );
+  // Available before any guess has even been attempted -- someone who
+  // doesn't know the verb at all shouldn't have to miss once first.
+  expect(screen.getByRole("button", { name: "Check Answer" })).toBeInTheDocument();
   const hintButton = screen.getByRole("button", { name: "Show Hint" });
   await user.click(hintButton);
   expect(onShowHint).toHaveBeenCalledTimes(1);
@@ -172,7 +181,6 @@ test("clicking Show Answer (once a hint is already showing) calls onShowAnswer",
     <ConjugationInput
       {...baseProps}
       randomVerb={baseVerb}
-      hasMissed
       isCorrectAnswer="false"
       showHint
       onShowAnswer={onShowAnswer}
@@ -183,16 +191,15 @@ test("clicking Show Answer (once a hint is already showing) calls onShowAnswer",
 });
 
 test("shows the hint text with the infinitive once showHint is true", () => {
-  render(<ConjugationInput {...baseProps} randomVerb={baseVerb} hasMissed showHint />);
+  render(<ConjugationInput {...baseProps} randomVerb={baseVerb} showHint />);
   expect(screen.getByText("hablar")).toBeInTheDocument();
 });
 
-test("shows the answer, including an alt form, and hides the hint button once showAnswer is true", () => {
+test("shows the answer, including an alt form, and hides the hint/answer buttons once showAnswer is true", () => {
   render(
     <ConjugationInput
       {...baseProps}
       randomVerb={{ ...baseVerb, form_target_alt: "hablás" }}
-      hasMissed
       isCorrectAnswer="false"
       showAnswer
     />,
@@ -205,9 +212,31 @@ test("shows the answer, including an alt form, and hides the hint button once sh
 
 test("does not show a hint button once the answer has been revealed", () => {
   render(
-    <ConjugationInput {...baseProps} randomVerb={baseVerb} hasMissed isCorrectAnswer="false" showAnswer />,
+    <ConjugationInput {...baseProps} randomVerb={baseVerb} isCorrectAnswer="false" showAnswer />,
   );
   expect(screen.queryByRole("button", { name: "Show Hint" })).not.toBeInTheDocument();
+});
+
+test("keeps both hint-area lines mounted across every stage -- only the hidden class ever changes", () => {
+  const { rerender } = render(<ConjugationInput {...baseProps} randomVerb={baseVerb} />);
+  const getLines = () => Array.from(document.querySelectorAll(".hint-text"));
+
+  expect(getLines()).toHaveLength(2);
+  expect(getLines().every((line) => line.classList.contains("hint-text--hidden"))).toBe(true);
+
+  rerender(<ConjugationInput {...baseProps} randomVerb={baseVerb} showHint />);
+  expect(getLines()).toHaveLength(2);
+  const [answerAfterHint, hintAfterHint] = getLines();
+  expect(answerAfterHint).toHaveClass("hint-text--hidden");
+  expect(hintAfterHint).not.toHaveClass("hint-text--hidden");
+
+  rerender(
+    <ConjugationInput {...baseProps} randomVerb={baseVerb} showHint showAnswer />,
+  );
+  expect(getLines()).toHaveLength(2);
+  const [answerAfterReveal, hintAfterReveal] = getLines();
+  expect(answerAfterReveal).not.toHaveClass("hint-text--hidden");
+  expect(hintAfterReveal).toHaveClass("hint-text--hidden");
 });
 
 test("shows a Next Verb button after a miss or once correct, which calls fetchRandomVerbConjugation", async () => {
@@ -225,9 +254,15 @@ test("shows a Next Verb button after a miss or once correct, which calls fetchRa
   expect(fetchRandomVerbConjugation).toHaveBeenCalledTimes(1);
 });
 
-test("does not show Next Verb, hint text, or answer text before anything has happened", () => {
+test("shows Check Answer and Show Hint (but no Next Verb, and no visible hint/answer text) before anything has happened", () => {
   render(<ConjugationInput {...baseProps} randomVerb={baseVerb} />);
+  expect(screen.getByRole("button", { name: "Check Answer" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Show Hint" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Next Verb" })).not.toBeInTheDocument();
-  expect(screen.queryByText(/Hint:/)).not.toBeInTheDocument();
-  expect(screen.queryByText(/Answer:/)).not.toBeInTheDocument();
+  // Both lines are always mounted (reserving their real height up front, so
+  // revealing one never changes the card's height) but hidden until asked
+  // for -- see ConjugationInput's hint-area comment.
+  const [answerLine, hintLine] = document.querySelectorAll(".hint-text");
+  expect(answerLine).toHaveClass("hint-text--hidden");
+  expect(hintLine).toHaveClass("hint-text--hidden");
 });

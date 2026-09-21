@@ -108,6 +108,49 @@ describe("with consent already granted", () => {
   });
 });
 
+describe("player state changes", () => {
+  beforeEach(() => {
+    vi.mocked(getStoredConsent).mockReturnValue("granted");
+  });
+
+  test("forwards onStateChange events to onPlayerStateChange", async () => {
+    const onPlayerStateChange = vi.fn();
+    render(
+      <YouTubePlayer videoId="abc123" onPlayerStateChange={onPlayerStateChange} />,
+    );
+    await waitFor(() => expect(MockPlayer.instances).toHaveLength(1));
+
+    const { onStateChange } = MockPlayer.instances[0].options.events as {
+      onStateChange: (event: { data: number }) => void;
+    };
+    onStateChange({ data: 1 });
+
+    expect(onPlayerStateChange).toHaveBeenCalledWith(1);
+  });
+
+  test("a rerender with a new callback still reaches the same player instance", async () => {
+    const firstCallback = vi.fn();
+    const { rerender } = render(
+      <YouTubePlayer videoId="abc123" onPlayerStateChange={firstCallback} />,
+    );
+    await waitFor(() => expect(MockPlayer.instances).toHaveLength(1));
+
+    const secondCallback = vi.fn();
+    rerender(<YouTubePlayer videoId="abc123" onPlayerStateChange={secondCallback} />);
+
+    const { onStateChange } = MockPlayer.instances[0].options.events as {
+      onStateChange: (event: { data: number }) => void;
+    };
+    onStateChange({ data: 2 });
+
+    expect(firstCallback).not.toHaveBeenCalled();
+    expect(secondCallback).toHaveBeenCalledWith(2);
+    // Only one player was ever constructed -- the new callback identity
+    // didn't tear down and recreate the embed.
+    expect(MockPlayer.instances).toHaveLength(1);
+  });
+});
+
 describe("YouTube API script loading", () => {
   // These two run first (in this order) so the module-level apiPromise
   // singleton in YouTubePlayer.tsx is still unset when they start -- once

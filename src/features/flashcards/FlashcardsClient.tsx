@@ -1,17 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import PageHeader from "../../components/PageHeader";
-import QuestionCard from "../../components/QuestionCard";
 import Button from "../../components/Button";
 import EmptyState from "../../components/EmptyState";
-import TimerStat from "../../components/TimerStat";
-import CounterStat from "../../components/CounterStat";
-import Confetti from "../../components/Confetti";
+import GoalBar from "../../components/GoalBar";
+import PracticeHistoryTable, {
+  type PracticeHistoryRow,
+} from "../../components/PracticeHistoryTable";
 import CategorySelection, { formatCategory } from "./CategorySelection";
 import { fetchRandomWord, fetchWordCategories } from "../../languages/api";
 import type { LanguageDefinition } from "../../languages/registry";
 import type { RandomWord } from "../../languages/types";
+import {
+  DEFAULT_FLASHCARDS_GOAL_SECONDS,
+  persistDailyFlashcardsSeconds,
+  persistFlashcardsGoalSeconds,
+  readDailyFlashcardsSeconds,
+  readFlashcardsGoalSeconds,
+} from "./session";
 
 type FlashcardsClientProps = {
   code: string;
@@ -27,28 +34,20 @@ const FlashcardsClient = ({ code, definition }: FlashcardsClientProps) => {
   const [direction, setDirection] = useState<Direction>("target-to-english");
   const [isFlipped, setIsFlipped] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [seenCount, setSeenCount] = useState(0);
-  const [knownCount, setKnownCount] = useState(0);
   const [showFlipHint, setShowFlipHint] = useState(true);
-  const [startTime, setStartTime] = useState<number | null>(null);
+  // Newest-first log of every word answered this session, shown as a table
+  // below the flashcard instead of a single running score tile.
+  const [history, setHistory] = useState<PracticeHistoryRow[]>([]);
+  // Counts up toward goalSeconds across the whole day (every practice visit
+  // today, not just this one) -- only ticks while actively on the practice
+  // screen (category chosen), same idea as Watch only ticking while a video
+  // is playing. Persisted per calendar day (see readDailyFlashcardsSeconds),
+  // so it survives a reload or a second tab today but resets once a new day
+  // starts.
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [elapsedOffsetSeconds, setElapsedOffsetSeconds] = useState(0);
-  const [scoreBump, setScoreBump] = useState(false);
-  const [timeLimitSeconds, setTimeLimitSeconds] = useState<
-    number | null | undefined
-  >(undefined);
-  const [isTimeUp, setIsTimeUp] = useState(false);
-  const [showConfetti, setShowConfetti] = useState(false);
-  const [showSummary, setShowSummary] = useState(false);
-
-  const remainingSeconds =
-    timeLimitSeconds != null
-      ? Math.max(timeLimitSeconds - elapsedSeconds, 0)
-      : null;
-  // "No limit" counts up from the moment it was chosen, not from whenever
-  // the session actually started (which may have been earlier, while the
-  // timer still read "Set timer").
-  const displayedElapsedSeconds = elapsedSeconds - elapsedOffsetSeconds;
+  // The goal itself (unlike progress toward it) is a standing preference --
+  // read from localStorage once mounted.
+  const [goalSeconds, setGoalSeconds] = useState(DEFAULT_FLASHCARDS_GOAL_SECONDS);
 
   const loadNextWord = async () => {
     setIsLoading(true);
@@ -56,7 +55,6 @@ const FlashcardsClient = ({ code, definition }: FlashcardsClientProps) => {
     const nextWord = await fetchRandomWord(code, category ?? undefined);
     setWord(nextWord ?? null);
     setIsLoading(false);
-    setStartTime((prev) => prev ?? Date.now());
   };
 
   const toggleFlipped = () => {
@@ -69,37 +67,35 @@ const FlashcardsClient = ({ code, definition }: FlashcardsClientProps) => {
     setIsFlipped(false);
   };
 
+  const recordHistory = (correct: boolean) => {
+    if (!word) return;
+    setHistory((prev) => [
+      {
+        id: crypto.randomUUID(),
+        correct,
+        cells: [word.word_target, word.word_english],
+      },
+      ...prev,
+    ]);
+  };
+
   const handleKnewIt = () => {
-    setKnownCount((prev) => prev + 1);
-    setSeenCount((prev) => prev + 1);
+    recordHistory(true);
     loadNextWord();
   };
 
   const handleDidntKnowIt = () => {
-    setSeenCount((prev) => prev + 1);
+    recordHistory(false);
     loadNextWord();
   };
 
-  const handleChooseTimeLimit = (minutes: number | null) => {
-    if (minutes === null) {
-      setElapsedOffsetSeconds(elapsedSeconds);
-      setTimeLimitSeconds(null);
-    } else {
-      setTimeLimitSeconds(elapsedSeconds + minutes * 60);
-    }
-  };
-
-  const handleStudyAgain = () => {
-    setSeenCount(0);
-    setKnownCount(0);
-    setStartTime(null);
-    setElapsedSeconds(0);
-    setElapsedOffsetSeconds(0);
-    setIsTimeUp(false);
-    setShowConfetti(false);
-    setShowSummary(false);
-    setTimeLimitSeconds(undefined);
-    loadNextWord();
+  // GoalBar's onChangeTarget always passes a real number here -- allowNoLimit
+  // is left off below, so "no limit" is never an option a viewer can pick.
+  const handleChangeGoal = (minutes: number | null) => {
+    if (minutes === null) return;
+    const seconds = minutes * 60;
+    setGoalSeconds(seconds);
+    persistFlashcardsGoalSeconds(seconds);
   };
 
   useEffect(() => {
@@ -128,7 +124,6 @@ const FlashcardsClient = ({ code, definition }: FlashcardsClientProps) => {
       if (cancelled) return;
       setWord(nextWord ?? null);
       setIsLoading(false);
-      setStartTime((prev) => prev ?? Date.now());
     })();
 
     return () => {
@@ -136,43 +131,54 @@ const FlashcardsClient = ({ code, definition }: FlashcardsClientProps) => {
     };
   }, [code, category]);
 
+  // Picks up today's progress and the standing goal from a previous visit --
+  // without this, both would start over at 0/default on every reload even
+  // though the real totals are still sitting in localStorage.
   useEffect(() => {
-    if (startTime === null || isTimeUp) return;
-    const interval = setInterval(() => {
-      setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [startTime, isTimeUp]);
-
-  useEffect(() => {
-    if (timeLimitSeconds == null || isTimeUp) return;
-    if (elapsedSeconds >= timeLimitSeconds) {
-      setIsTimeUp(true);
-    }
-  }, [elapsedSeconds, timeLimitSeconds, isTimeUp]);
-
-  useEffect(() => {
-    if (!isTimeUp) return;
-    setShowConfetti(true);
-    const summaryTimeout = setTimeout(() => setShowSummary(true), 500);
-    const confettiTimeout = setTimeout(() => setShowConfetti(false), 2800);
-    return () => {
-      clearTimeout(summaryTimeout);
-      clearTimeout(confettiTimeout);
-    };
-  }, [isTimeUp]);
-
-  useEffect(() => {
-    if (knownCount === 0) return;
-    setScoreBump(true);
-    const timeout = setTimeout(() => setScoreBump(false), 500);
-    return () => clearTimeout(timeout);
-  }, [knownCount]);
+    setGoalSeconds(readFlashcardsGoalSeconds());
+    setElapsedSeconds(readDailyFlashcardsSeconds());
+  }, []);
 
   const isSetupStep = category === undefined;
 
+  useEffect(() => {
+    if (isSetupStep) return;
+    const interval = setInterval(() => {
+      setElapsedSeconds((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isSetupStep]);
+
+  // Mirrors every tick to localStorage so today's progress survives a
+  // reload. Skips its own very first (mount-time) run: elapsedSeconds still
+  // holds its initial 0 at that point, since the read-from-storage effect
+  // above only *schedules* the real value rather than applying it
+  // immediately -- persisting on that first pass would momentarily clobber
+  // today's real total with 0 the instant this component (re)mounts.
+  const hasPersistedOnce = useRef(false);
+  useEffect(() => {
+    if (!hasPersistedOnce.current) {
+      hasPersistedOnce.current = true;
+      return;
+    }
+    persistDailyFlashcardsSeconds(elapsedSeconds);
+  }, [elapsedSeconds]);
+
   return (
     <div className="page">
+      <div className="goal-bar-wrap">
+        <GoalBar
+          elapsedSeconds={elapsedSeconds}
+          targetSeconds={goalSeconds}
+          onChangeTarget={handleChangeGoal}
+          caption="Today's flashcards goal"
+          editLabel="Change today's flashcards goal"
+          subjectLabel="goal"
+          completeLabel="Goal reached!"
+          ctaLabel="Set a flashcards goal"
+        />
+      </div>
+
       <PageHeader
         title="Flashcards"
         subtitle={
@@ -182,73 +188,52 @@ const FlashcardsClient = ({ code, definition }: FlashcardsClientProps) => {
         }
       />
 
-      <div className="flashcards-card">
+      <div className={`flashcards-card${isSetupStep ? " flashcards-card--setup" : ""}`}>
         {isSetupStep ? (
           categories.length > 0 && (
             <CategorySelection categories={categories} onSelect={setCategory} />
           )
         ) : (
           <>
-            {!isTimeUp && (
-              <div className="direction-toggle">
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={direction === "english-to-target"}
-                  aria-label="Flashcard practice direction"
-                  className="lang-toggle"
-                  onClick={() =>
-                    handleSetDirection(
-                      direction === "target-to-english"
-                        ? "english-to-target"
-                        : "target-to-english",
-                    )
-                  }
-                >
-                  <span
-                    className={`lang-toggle-thumb${
-                      direction === "english-to-target" ? " right" : ""
-                    }`}
-                    aria-hidden="true"
-                  />
-                  <span
-                    className={`lang-toggle-label${
-                      direction === "target-to-english" ? " active" : ""
-                    }`}
-                  >
-                    {definition.displayName}
-                  </span>
-                  <span
-                    className={`lang-toggle-label${
-                      direction === "english-to-target" ? " active" : ""
-                    }`}
-                  >
-                    English
-                  </span>
-                </button>
-              </div>
-            )}
-
-            {startTime !== null && (
-              <div className="practice-stats">
-                <TimerStat
-                  seconds={remainingSeconds ?? displayedElapsedSeconds}
-                  label={remainingSeconds !== null ? "left" : "time"}
-                  lowTime={remainingSeconds !== null && remainingSeconds <= 10 && !isTimeUp}
-                  currentLimitMinutes={
-                    timeLimitSeconds === undefined
-                      ? undefined
-                      : timeLimitSeconds === null
-                        ? null
-                        : Math.round((timeLimitSeconds - elapsedSeconds) / 60)
-                  }
-                  onSetLimitMinutes={isTimeUp ? undefined : handleChooseTimeLimit}
+            <div className="direction-toggle">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={direction === "english-to-target"}
+                aria-label="Flashcard practice direction"
+                className="lang-toggle"
+                onClick={() =>
+                  handleSetDirection(
+                    direction === "target-to-english"
+                      ? "english-to-target"
+                      : "target-to-english",
+                  )
+                }
+              >
+                <span
+                  className={`lang-toggle-thumb${
+                    direction === "english-to-target" ? " right" : ""
+                  }`}
+                  aria-hidden="true"
                 />
-                <CounterStat count={knownCount} total={seenCount} label="known" bump={scoreBump} />
-              </div>
-            )}
+                <span
+                  className={`lang-toggle-label${
+                    direction === "target-to-english" ? " active" : ""
+                  }`}
+                >
+                  {definition.displayName}
+                </span>
+                <span
+                  className={`lang-toggle-label${
+                    direction === "english-to-target" ? " active" : ""
+                  }`}
+                >
+                  English
+                </span>
+              </button>
+            </div>
 
-            {word && !isTimeUp && (
+            {word && (
               <div className="flashcard-wrap">
                 {showFlipHint && (
                   <div className="flip-hint" aria-hidden="true">
@@ -311,42 +296,37 @@ const FlashcardsClient = ({ code, definition }: FlashcardsClientProps) => {
               </div>
             )}
 
-            {!word && !isLoading && !isTimeUp && (
+            {!word && !isLoading && (
               <EmptyState>Couldn&apos;t load a word right now. Try again in a moment.</EmptyState>
             )}
 
-            {isFlipped && !isTimeUp && (
-              <div className="flashcards-controls">
-                <Button variant="outline" onClick={handleDidntKnowIt} disabled={isLoading}>
-                  I didn&apos;t know it
-                </Button>
-                <Button onClick={handleKnewIt} disabled={isLoading}>
-                  I knew it
-                </Button>
-              </div>
-            )}
-
-            {showConfetti && <Confetti />}
-
-            {isTimeUp && (
-              <QuestionCard title="Time's up! 🎉">
-                <div className={`time-up-content${showSummary ? " visible" : ""}`}>
-                  <div className="time-up-score">
-                    {knownCount}
-                    <span className="time-up-score-of">/{seenCount}</span>
-                  </div>
-                  <p className="time-up-summary">
-                    {seenCount > 0
-                      ? `${Math.round((knownCount / seenCount) * 100)}% known`
-                      : "No words answered yet"}
-                  </p>
-                  <Button onClick={handleStudyAgain}>Study Again</Button>
-                </div>
-              </QuestionCard>
-            )}
+            {/* Always mounted (visibility toggled, not conditionally
+                rendered) so it keeps reserving its row's height whether the
+                card is flipped or not -- otherwise the history table below
+                jumps up and down every time a card flips. */}
+            <div
+              className={`flashcards-controls${isFlipped ? "" : " flashcards-controls--hidden"}`}
+            >
+              <Button
+                variant="outline"
+                onClick={handleDidntKnowIt}
+                disabled={isLoading || !isFlipped}
+              >
+                I didn&apos;t know it
+              </Button>
+              <Button onClick={handleKnewIt} disabled={isLoading || !isFlipped}>
+                I knew it
+              </Button>
+            </div>
           </>
         )}
       </div>
+
+      <PracticeHistoryTable
+        title="Words practiced"
+        headers={["Word", "Translation"]}
+        rows={history}
+      />
     </div>
   );
 };

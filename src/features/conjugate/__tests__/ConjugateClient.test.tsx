@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import ConjugateClient from "../ConjugateClient";
@@ -70,6 +70,7 @@ const flush = async () => {
 beforeEach(() => {
   vi.mocked(fetchRandomVerbConjugation).mockReset();
   vi.mocked(fetchRandomVerbConjugation).mockResolvedValue(presentVerb);
+  window.localStorage.clear();
 });
 
 afterEach(() => {
@@ -161,22 +162,69 @@ describe("answering questions", () => {
     return screen.getByPlaceholderText("Enter your translation") as HTMLInputElement;
   };
 
-  test("a correct guess shows the correct banner and bumps the score", async () => {
+  const historyRows = () =>
+    Array.from(document.querySelectorAll<HTMLElement>(".history-table tbody tr"));
+
+  test("reserves the accent-toolbar row before any answer, rather than adding/removing it", async () => {
+    const user = userEvent.setup();
+    const input = await setupActiveQuestion();
+
+    // Stays mounted (reserving its row's height) from the first question --
+    // flipping between "unanswered" and "resolved" should only toggle the
+    // hidden class, not insert/remove the element, so nothing below the
+    // card jumps.
+    expect(document.querySelector(".accent-toolbar")).not.toHaveClass(
+      "accent-toolbar--hidden",
+    );
+    expect(document.querySelector(".quiz-input-icon")).not.toBeInTheDocument();
+
+    await user.type(input, "hablo");
+    await user.click(screen.getByRole("button", { name: "Check Answer" }));
+
+    expect(document.querySelector(".accent-toolbar")).toHaveClass("accent-toolbar--hidden");
+    expect(document.querySelector(".quiz-input-icon")).toHaveClass("correct");
+  });
+
+  test("a correct guess shows an inline result icon and logs a Correct row right away", async () => {
     const user = userEvent.setup();
     const input = await setupActiveQuestion();
 
     await user.type(input, "hablo");
     await user.click(screen.getByRole("button", { name: "Check Answer" }));
 
-    expect(screen.getByText("✓ Correct!")).toBeInTheDocument();
-    expect(document.querySelector(".stat-card--score")?.textContent).toContain("1");
+    expect(document.querySelector(".quiz-input-icon")).toHaveClass("correct");
+    expect(screen.getByRole("status")).toHaveTextContent("Correct!");
+    // The history table logs the question the instant the answer is
+    // resolved, not only once "Next Verb" is clicked.
+    expect(historyRows()).toHaveLength(1);
+    const [row] = historyRows();
+    expect(within(row).getByText("hablo")).toBeInTheDocument();
+    expect(within(row).getByRole("img", { name: "Correct" })).toBeInTheDocument();
 
     vi.mocked(fetchRandomVerbConjugation).mockResolvedValueOnce(tuVerb);
     await user.click(screen.getByRole("button", { name: "Next Verb" }));
     await flush();
 
     expect(screen.getByText("you speak")).toBeInTheDocument();
-    expect(document.querySelector(".stat-card--score")?.textContent).toContain("1/1");
+    expect(historyRows()).toHaveLength(1);
+  });
+
+  test("giving up logs an Incorrect row as soon as Show Answer is clicked, not before", async () => {
+    const user = userEvent.setup();
+    const input = await setupActiveQuestion();
+
+    await user.type(input, "nope");
+    await user.click(screen.getByRole("button", { name: "Check Answer" }));
+    expect(historyRows()).toHaveLength(0);
+
+    await user.click(screen.getByRole("button", { name: "Show Hint" }));
+    expect(historyRows()).toHaveLength(0);
+
+    await user.click(screen.getByRole("button", { name: "Show Answer" }));
+    expect(historyRows()).toHaveLength(1);
+    expect(
+      within(historyRows()[0]).getByRole("img", { name: "Incorrect" }),
+    ).toBeInTheDocument();
   });
 
   test("matches the alternate form of the answer too", async () => {
@@ -186,26 +234,33 @@ describe("answering questions", () => {
     await user.type(input, "hablás");
     await user.click(screen.getByRole("button", { name: "Check Answer" }));
 
-    expect(screen.getByText("✓ Correct!")).toBeInTheDocument();
+    expect(document.querySelector(".quiz-input-icon")).toHaveClass("correct");
   });
 
-  test("a wrong guess shows hint then answer, and typing again clears the incorrect banner", async () => {
+  test("a wrong guess shows hint then answer, and typing again clears the result icon", async () => {
     const user = userEvent.setup();
     const input = await setupActiveQuestion();
 
     await user.type(input, "nope");
     await user.click(screen.getByRole("button", { name: "Check Answer" }));
-    expect(screen.getByText("✗ Incorrect")).toBeInTheDocument();
+    expect(document.querySelector(".quiz-input-icon")).toHaveClass("incorrect");
 
     await user.type(input, "x");
-    expect(screen.queryByText("✗ Incorrect")).not.toBeInTheDocument();
+    // Unlike the always-mounted accent-toolbar, the result icon is
+    // genuinely absent once the guess is unresolved again -- it's
+    // absolutely positioned, so it never affects the card's layout either
+    // way, mounted or not.
+    expect(document.querySelector(".quiz-input-icon")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Show Hint" }));
     expect(screen.getByText("hablar")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Show Answer" }));
-    expect(screen.getByText("hablo")).toBeInTheDocument();
-    expect(screen.getByText("hablás")).toBeInTheDocument();
+    // Scoped to the question card, since giving up also logs this verb into
+    // the history table below, which repeats some of the same text.
+    const questionCard = document.querySelector(".question-card") as HTMLElement;
+    expect(within(questionCard).getByText("hablo")).toBeInTheDocument();
+    expect(within(questionCard).getByText("hablás")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Check Answer" })).not.toBeInTheDocument();
 
     vi.mocked(fetchRandomVerbConjugation).mockResolvedValueOnce(tuVerb);
@@ -213,7 +268,9 @@ describe("answering questions", () => {
     await flush();
 
     expect(screen.getByText("you speak")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Show Hint" })).not.toBeInTheDocument();
+    // Show Hint is available again for the fresh question -- it isn't
+    // gated behind having missed this new question too.
+    expect(screen.getByRole("button", { name: "Show Hint" })).toBeInTheDocument();
   });
 
   test("submitting again once already correct fetches the next question", async () => {
@@ -354,7 +411,7 @@ describe("mood and polarity resolution", () => {
   });
 });
 
-describe("timer / time-up flow", () => {
+describe("daily goal bar", () => {
   beforeEach(() => {
     // shouldAdvanceTime keeps the fake clock ticking alongside real time,
     // which is what stops `await user.click(...)` from hanging forever --
@@ -363,66 +420,42 @@ describe("timer / time-up flow", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
   });
 
-  test("choosing 'No limit' switches the timer to counting up", async () => {
-    const user = userEvent.setup({ delay: null });
+  test("defaults to a 15-minute daily goal", async () => {
     render(<ConjugateClient code="es" definition={definition} initialTenses={["present"]} />);
     await flush();
 
-    await user.click(screen.getByRole("button", { name: "Set timer" }));
-    await user.click(screen.getByRole("button", { name: "No limit" }));
-
-    expect(screen.queryByRole("button", { name: "Set timer" })).not.toBeInTheDocument();
-    expect(screen.getByText("time")).toBeInTheDocument();
+    expect(document.querySelector(".goal-bar-label")?.textContent).toBe("0:00 / 15:00");
   });
 
-  test("reaches a chosen time limit, shows the summary, and Conjugate Again resets the session", async () => {
+  test("changing the goal updates the target and persists it", async () => {
     const user = userEvent.setup({ delay: null });
     render(<ConjugateClient code="es" definition={definition} initialTenses={["present"]} />);
     await flush();
 
-    await user.click(screen.getByRole("button", { name: "Set timer" }));
-    await user.click(screen.getByRole("button", { name: "1 min" }));
+    await user.click(screen.getByRole("button", { name: "Change today's conjugate goal" }));
+    const input = screen.getByLabelText("goal in minutes");
+    fireEvent.change(input, { target: { value: "20" } });
+    fireEvent.blur(input);
+
+    expect(document.querySelector(".goal-bar-label")?.textContent).toBe("0:00 / 20:00");
+    expect(window.localStorage.getItem("dialectrek-conjugate-goal-seconds")).toBe("1200");
+  });
+
+  test("keeps conjugating uninterrupted past the goal, unlike a session timer", async () => {
+    render(<ConjugateClient code="es" definition={definition} initialTenses={["present"]} />);
+    await flush();
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(60_000);
+      await vi.advanceTimersByTimeAsync(15 * 60_000);
     });
     await act(async () => {
       await vi.advanceTimersByTimeAsync(3_000);
     });
 
-    expect(screen.getByRole("heading", { name: /Time's up/ })).toBeInTheDocument();
-    expect(screen.getByText("No questions answered yet")).toBeInTheDocument();
-
-    vi.mocked(fetchRandomVerbConjugation).mockResolvedValueOnce(presentVerb);
-    await user.click(screen.getByRole("button", { name: "Conjugate Again" }));
-    await flush();
-
-    expect(screen.getByRole("button", { name: "Set timer" })).toBeInTheDocument();
-    expect(screen.getByText("I speak")).toBeInTheDocument();
-  });
-
-  test("shows a percentage summary when questions were answered before time ran out", async () => {
-    const user = userEvent.setup({ delay: null });
-    render(<ConjugateClient code="es" definition={definition} initialTenses={["present"]} />);
-    await flush();
-
-    const input = screen.getByPlaceholderText("Enter your translation");
-    await user.type(input, "hablo");
-    await user.click(screen.getByRole("button", { name: "Check Answer" }));
-    vi.mocked(fetchRandomVerbConjugation).mockResolvedValueOnce(tuVerb);
-    await user.click(screen.getByRole("button", { name: "Next Verb" }));
-    await flush();
-
-    await user.click(screen.getByRole("button", { name: "Set timer" }));
-    await user.click(screen.getByRole("button", { name: "1 min" }));
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(60_000);
-    });
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(3_000);
-    });
-
-    expect(screen.getByText("100% correct")).toBeInTheDocument();
+    // No stop screen -- the bar just reports the goal reached and
+    // conjugating continues exactly as before.
+    expect(screen.queryByRole("heading", { name: /Time's up/ })).not.toBeInTheDocument();
+    expect(document.querySelector(".goal-bar-label")?.textContent).toMatch(/^Goal reached!/);
+    expect(screen.getByPlaceholderText("Enter your translation")).toBeInTheDocument();
   });
 });

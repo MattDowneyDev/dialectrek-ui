@@ -1213,11 +1213,6 @@ a.language-card:hover {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.stat-card--timer {
-  background: var(--color-primary-light);
-  border-color: color-mix(in srgb, var(--color-primary) 25%, var(--color-border));
-}
-
 .stat-card--score {
   background: linear-gradient(
     135deg,
@@ -1274,17 +1269,6 @@ a.language-card:hover {
   }
 }
 
-.stat-card--timer.low-time {
-  background: var(--color-danger-light);
-  border-color: color-mix(in srgb, var(--color-danger) 40%, var(--color-border));
-  animation: stat-pulse 1s ease infinite;
-}
-
-.stat-card--timer.low-time .stat-value,
-.stat-card--timer.low-time .stat-label {
-  color: var(--color-danger);
-}
-
 @media (max-width: 480px) {
   .practice-stats {
     gap: 10px;
@@ -1312,19 +1296,97 @@ a.language-card:hover {
   }
 }
 
-@keyframes stat-pulse {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.06);
+/* ---------- Practice history table ---------- */
+
+.history-table-wrap {
+  max-width: var(--container-width);
+  margin: 0 auto 64px;
+  padding: 0 24px;
+}
+
+.history-table-title {
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.history-table-scroll {
+  max-height: 420px;
+  overflow-y: auto;
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--color-surface);
+}
+
+.history-table th,
+.history-table td {
+  padding: 10px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* Everything but the result column is free to wrap -- keeping the rest of
+   the row on one line is what made this table wider than a phone screen
+   before, forcing an awkward sideways scroll just to see whether a row was
+   right or wrong. */
+.history-result-col {
+  width: 1%;
+  white-space: nowrap;
+  text-align: center;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+.history-table th {
+  position: sticky;
+  top: 0;
+  background: var(--color-surface-alt);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+
+.history-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Leads each row (see PracticeHistoryTable) so the result reads at a
+   glance without scrolling, and needs only a narrow icon instead of a
+   "Correct"/"Incorrect" badge to do it. */
+.history-result {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.history-result.correct {
+  color: var(--color-success);
+}
+
+.history-result.incorrect {
+  color: var(--color-danger);
+}
+
+@media (max-width: 480px) {
+  .history-table th,
+  .history-table td {
+    padding: 8px 12px;
+    font-size: 0.9rem;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .stat-card--score.bump,
-  .stat-card--timer.low-time {
+  .stat-card--score.bump {
     animation: none;
   }
 }
@@ -1504,27 +1566,6 @@ a.language-card:hover {
   color: #fff;
 }
 
-.timer-editable {
-  cursor: pointer;
-  font: inherit;
-}
-
-.timer-editable:hover,
-.timer-editable:focus-visible {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-}
-
-.stat-value--cta {
-  font-size: 1.3rem;
-  color: var(--color-primary);
-}
-
-.timer-stat-wrap {
-  position: relative;
-  display: inline-flex;
-}
-
 .timer-dropdown-backdrop {
   position: fixed;
   inset: 0;
@@ -1545,98 +1586,85 @@ a.language-card:hover {
   min-width: max-content;
 }
 
-.timer-presets {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  max-width: 220px;
-}
-
-.timer-wheel-picker {
-  width: 140px;
-}
-
-.timer-wheel-viewport {
-  position: relative;
-}
-
-.timer-wheel {
-  height: 180px;
-  overflow-y: auto;
-  scroll-snap-type: y mandatory;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    transparent,
-    black 20%,
-    black 80%,
-    transparent
-  );
-  mask-image: linear-gradient(
-    to bottom,
-    transparent,
-    black 20%,
-    black 80%,
-    transparent
-  );
-}
-
-.timer-wheel::-webkit-scrollbar {
-  display: none;
-}
-
-.timer-wheel-spacer {
-  height: 72px;
-  scroll-snap-align: none;
-}
-
-.timer-wheel-item {
-  height: 36px;
+.goal-bar-stepper {
   display: flex;
   align-items: center;
   justify-content: center;
-  scroll-snap-align: center;
-  font-family: var(--font-heading);
-  font-size: 1.1rem;
+  gap: 10px;
+}
+
+.goal-bar-stepper-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.goal-bar-stepper-button:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.goal-bar-stepper-input {
+  width: 56px;
+  padding: 8px 4px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+  font-weight: 700;
+  text-align: center;
+  color: var(--color-text);
+  background: var(--color-surface);
+  /* Hides the native up/down spinner -- the +/- buttons already cover that,
+     so the browser's own arrows would just be a redundant, cramped second
+     way to do the same thing right next to them. */
+  appearance: textfield;
+}
+
+.goal-bar-stepper-input::-webkit-outer-spin-button,
+.goal-bar-stepper-input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.goal-bar-stepper-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.goal-bar-stepper-unit {
+  font-size: 0.85rem;
   font-weight: 600;
   color: var(--color-text-muted);
-  transition: color 0.15s ease, font-size 0.15s ease;
 }
 
-.timer-wheel-item.active {
-  color: var(--color-text);
-  font-size: 1.4rem;
-}
-
-.timer-wheel-highlight {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 36px;
-  transform: translateY(-50%);
-  border-top: 1.5px solid var(--color-border);
-  border-bottom: 1.5px solid var(--color-border);
-  background: var(--color-primary-light);
-  opacity: 0.5;
-  border-radius: 8px;
-  pointer-events: none;
-}
-
-.timer-wheel-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 8px;
-}
-
-.timer-wheel-unit {
+.goal-bar-nolimit-button {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding-top: 10px;
+  border: none;
+  border-top: 1px solid var(--color-border);
+  background: none;
   font-size: 0.85rem;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--color-text-muted);
+  text-align: center;
+  cursor: pointer;
+}
+
+.goal-bar-nolimit-button:hover {
+  color: var(--color-primary-dark);
 }
 
 .quiz-badges {
@@ -1792,6 +1820,10 @@ a.language-card:hover {
   flex-wrap: wrap;
 }
 
+.accent-toolbar--hidden {
+  visibility: hidden;
+}
+
 .accent-btn {
   min-width: 34px;
   padding: 4px 8px;
@@ -1850,15 +1882,79 @@ a.language-card:hover {
   color: var(--color-danger);
 }
 
+/* The hint and answer lines share this one grid cell, stacked on top of
+   each other instead of one after another -- the area's height is then
+   however tall the taller of the two really is, with zero guessing, and
+   showing one instead of the other never changes that height. */
+.hint-area {
+  display: grid;
+}
+
 .hint-text {
+  grid-area: 1 / 1;
   margin-top: 14px;
   color: var(--color-text-muted);
   font-size: 0.9rem;
   animation: feedback-in 0.2s ease both;
 }
 
+.hint-text--hidden {
+  visibility: hidden;
+}
+
 .hint-text strong {
   color: var(--color-text);
+}
+
+.quiz-input-wrap {
+  position: relative;
+}
+
+/* Sits inside the input itself instead of a separate banner below it --
+   the result now reads right off the thing it's about. Spans the input's
+   full height and centers the icon with flexbox rather than a translateY
+   trick, so it's centered on the icon's actual box, not its font metrics
+   (which don't line up between the check and X glyphs this used to use). */
+.quiz-input-icon {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  animation: feedback-in 0.2s ease both;
+}
+
+.quiz-input-icon.correct {
+  color: var(--color-success);
+}
+
+.quiz-input-icon.incorrect {
+  color: var(--color-danger);
+}
+
+/* Leaves room for .quiz-input-icon so it doesn't sit on top of longer
+   guesses -- only added once there's a result to show an icon for, so the
+   input stays symmetrically centered beforehand. */
+.quiz-input.correct,
+.quiz-input.incorrect {
+  padding-right: 44px;
+}
+
+/* Visually hidden but still announced by screen readers -- carries the
+   same "Correct!"/"Incorrect" signal the quiz-input-icon gives sighted
+   users, since that icon is aria-hidden and decorative only. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* ---------- Flashcards ---------- */
@@ -1871,6 +1967,14 @@ a.language-card:hover {
   flex-direction: column;
   align-items: center;
   gap: 28px;
+}
+
+/* The category-picker step has no fixed-width flashcard to match, so it
+   gets more room than the practice view -- otherwise its chips wrap into a
+   tall, narrow column instead of a few wide rows. Matches .practice-card's
+   width, which conjugate's own setup wizard uses for the same reason. */
+.flashcards-card--setup {
+  max-width: 640px;
 }
 
 .direction-toggle {
@@ -2082,6 +2186,10 @@ a.language-card:hover {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+.flashcards-controls--hidden {
+  visibility: hidden;
 }
 
 /* ---------- About page ---------- */
@@ -3138,6 +3246,134 @@ a.language-card:hover {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.goal-bar-wrap {
+  max-width: var(--container-width);
+  margin: 24px auto 8px;
+  padding: 0 24px;
+}
+
+.goal-bar {
+  position: relative;
+  width: 100%;
+  margin: 0 0 8px;
+}
+
+.goal-bar-caption {
+  margin-bottom: 8px;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+
+.goal-bar-track {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-alt);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.08);
+  font: inherit;
+  /* Clips the fill to the track's own rounded pill shape at any width --
+     without this, a narrow fill's border-radius gets scaled down by the
+     browser to fit its own small box, so its curve doesn't match the
+     track's much bigger curve and it looks like an odd blob instead of a
+     clean rounded segment of the same pill. */
+  overflow: hidden;
+}
+
+/* Only a real <button> (the editable case) gets the clickable affordance --
+   the plain <div> GoalBar renders once editable=false shouldn't look or
+   act interactive. */
+button.goal-bar-track {
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.1s ease;
+}
+
+button.goal-bar-track:hover {
+  border-color: var(--color-primary);
+}
+
+button.goal-bar-track:active {
+  transform: scale(0.995);
+}
+
+.goal-bar-fill {
+  display: block;
+  height: 100%;
+  /* No border-radius here on purpose -- the track's own overflow: hidden
+     clips this to its rounded shape, which stays correct at any width
+     instead of the fill's own radius getting scaled down when narrow. */
+  background:
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.2) 0px,
+      rgba(255, 255, 255, 0.2) 14px,
+      transparent 14px,
+      transparent 28px
+    ),
+    linear-gradient(90deg, var(--color-primary), var(--color-accent-3));
+  background-size: 40px 40px, 100% 100%;
+  box-shadow: 0 0 16px color-mix(in srgb, var(--color-primary) 55%, transparent);
+  transition: width 0.6s ease, box-shadow 0.3s ease;
+  animation: goal-bar-stripes 1s linear infinite;
+}
+
+.goal-bar-fill--complete {
+  background:
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.25) 0px,
+      rgba(255, 255, 255, 0.25) 14px,
+      transparent 14px,
+      transparent 28px
+    ),
+    linear-gradient(90deg, var(--color-primary), var(--color-success));
+  box-shadow: 0 0 20px color-mix(in srgb, var(--color-success) 65%, transparent);
+}
+
+@keyframes goal-bar-stripes {
+  from {
+    background-position: 0 0, 0 0;
+  }
+  to {
+    background-position: 40px 0, 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .goal-bar-fill {
+    animation: none;
+  }
+}
+
+.goal-bar-label {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  font-weight: 800;
+  font-size: 1rem;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.goal-bar-label--plain {
+  color: var(--color-text);
+  text-shadow: none;
 }
 
 .watch-like-button {
