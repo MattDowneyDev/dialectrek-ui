@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
-const DEFAULT_IMAGE = "/DialecTrekHeroImage.png";
+const DEFAULT_IMAGE = "/DialecTrekHeroImage.jpeg";
 const DEFAULT_IMAGE_ALT =
-  "A traveler pauses on a mountain trail marked with icons for reading, conversation, and practice, following it toward a flag at the summit";
+  "A hiker pauses on a mountain trail, looking out over green valleys and a winding path toward distant peaks";
 
 type PageMetadataInput = {
   /** Page-specific title. Runs through the root layout's "%s | DialecTrek" template. */

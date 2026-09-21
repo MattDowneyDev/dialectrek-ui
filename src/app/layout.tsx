@@ -37,8 +37,8 @@ export const metadata: Metadata = {
     description: SITE_DESCRIPTION,
     images: [
       {
-        url: "/DialecTrekHeroImage.png",
-        alt: "A traveler pauses on a mountain trail marked with icons for reading, conversation, and practice, following it toward a flag at the summit",
+        url: "/DialecTrekHeroImage.jpeg",
+        alt: "A hiker pauses on a mountain trail, looking out over green valleys and a winding path toward distant peaks",
       },
     ],
   },
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "DialecTrek",
     description: SITE_DESCRIPTION,
-    images: ["/DialecTrekHeroImage.png"],
+    images: ["/DialecTrekHeroImage.jpeg"],
   },
 };
 

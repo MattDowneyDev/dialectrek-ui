@@ -33,10 +33,10 @@ describe("pageMetadata", () => {
   test("includes a default social preview image on both card types", () => {
     const metadata = pageMetadata({ title: "t", description: "d", path: "/" });
     expect(metadata.openGraph?.images).toEqual([
-      { url: "/DialecTrekHeroImage.png", alt: expect.any(String) },
+      { url: "/DialecTrekHeroImage.jpeg", alt: expect.any(String) },
     ]);
     expect(metadata.twitter?.images).toEqual([
-      { url: "/DialecTrekHeroImage.png", alt: expect.any(String) },
+      { url: "/DialecTrekHeroImage.jpeg", alt: expect.any(String) },
     ]);
     // pageMetadata always sets a card, but next's Twitter type is a union
     // whose bare fallback member has no `card` field, so TS won't let us
