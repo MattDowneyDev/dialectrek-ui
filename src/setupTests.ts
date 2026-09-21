@@ -38,3 +38,17 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: () => false,
   }),
 });
+
+// jsdom also has no ResizeObserver -- WatchClient uses one to mirror the
+// video player's rendered height onto a CSS variable, and constructing
+// it unconditionally would throw in every test that mounts the watch
+// page.
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+Object.defineProperty(globalThis, 'ResizeObserver', {
+  configurable: true,
+  value: ResizeObserverStub,
+});
