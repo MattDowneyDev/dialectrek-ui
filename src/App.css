@@ -1755,6 +1755,24 @@ a.language-card:hover {
   color: var(--color-text);
 }
 
+/* Footer bar around LetsGoButton, wrapping every picker screen's confirm
+   button (see LetsGoButton.tsx). Sticky to the bottom of the viewport so it
+   stays visible while a long .selection-grid scrolls past above it -- the
+   negative margin/padding swap bleeds it out to the full width and bottom
+   edge of the enclosing .question-card (undoing that card's own padding)
+   so the bar reads as part of the card rather than floating separately,
+   while still rounding its bottom corners to match the card underneath it. */
+.selection-confirm {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin: 0 -32px -40px;
+  padding: 16px 32px 24px;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
 .timer-dropdown-backdrop {
   position: fixed;
   inset: 0;
