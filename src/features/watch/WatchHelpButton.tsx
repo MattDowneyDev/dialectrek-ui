@@ -30,9 +30,9 @@ const WatchHelpButton = () => {
             <RankingSeesawGraphic />
           </div>
           <p>
-            New videos are imported with a neutral difficulty score that puts
-            them in the middle of the pack. After watching multiple videos, you
-            choose which was more difficult to understand.
+            New videos are imported with a "best guess" difficulty score. After
+            watching multiple videos, you choose which was more difficult to
+            understand.
           </p>
           <p>
             Ranking a video as more difficult makes its difficulty score go up

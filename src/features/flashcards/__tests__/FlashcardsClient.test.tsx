@@ -132,7 +132,7 @@ describe("daily goal bar", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
   });
 
-  test("defaults to a 15-minute daily goal once practice starts", async () => {
+  test("defaults to a 5-minute daily goal once practice starts", async () => {
     const user = userEvent.setup({ delay: null });
     render(<FlashcardsClient code="es" definition={definition} />);
     await flush();
@@ -140,7 +140,7 @@ describe("daily goal bar", () => {
     await chooseAllWordsAndGo(user);
     await flush();
 
-    expect(document.querySelector(".goal-bar-label")?.textContent).toBe("0:00 / 15:00");
+    expect(document.querySelector(".goal-bar-label")?.textContent).toBe("0:00 / 5:00");
   });
 
   test("changing the goal updates the target and persists it", async () => {

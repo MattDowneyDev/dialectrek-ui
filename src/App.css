@@ -1376,7 +1376,7 @@ a.language-card:hover {
 
 .history-table-wrap {
   max-width: var(--container-width);
-  margin: 0 auto 64px;
+  margin: 28px auto 28px;
   padding: 0 24px;
 }
 
@@ -2300,6 +2300,96 @@ a.language-card:hover {
   }
 }
 
+/* Landscape phones are short as well as wide -- Conjugate's single-column
+   form above (badges, sentence, input, accent toolbar, actions, hint)
+   still has to fit under the goal meter and above the Stop Practice
+   button, which on a ~375px-tall window left only ~180px for the card.
+   .conjugate-focus-card already scrolls internally past whatever doesn't
+   fit, but showing that little of the card at once felt broken rather
+   than merely scrollable. Shrinks the chrome around the card, the Stop
+   Practice button, and the card's own internal spacing/buttons/type
+   together so the whole form fits with room to spare instead of just
+   barely (or not) clearing the available height.
+   .goal-bar-track and .btn are both scoped here (.focus-mode-meter/
+   .conjugate-focus-card prefixes) rather than overridden bare -- their
+   own base rules live later in this file, so a same-specificity bare
+   override placed here would lose the cascade to them regardless of this
+   media query; the extra class also keeps the shrink from leaking into
+   the Watch page's goal bar or other buttons that share the same names. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .focus-mode {
+    gap: 6px;
+    padding: 8px 20px 10px;
+  }
+
+  .focus-mode-body--stacked {
+    gap: 6px;
+  }
+
+  .focus-mode-meter .goal-bar-caption {
+    display: none;
+  }
+
+  .focus-mode-meter .goal-bar-track {
+    height: 28px;
+  }
+
+  .focus-mode-meter .goal-bar {
+    margin-bottom: 0;
+  }
+
+  .focus-mode-body--stacked > .btn {
+    padding: 8px 18px;
+    font-size: 0.875rem;
+  }
+
+  .conjugate-focus-card .question-card {
+    padding: 12px 20px;
+  }
+
+  .conjugate-focus-card .btn {
+    padding: 8px 18px;
+    font-size: 0.875rem;
+  }
+
+  .conjugate-focus-card .quiz-badges {
+    margin-bottom: 6px;
+  }
+
+  .conjugate-focus-card .quiz-sentence {
+    margin-bottom: 8px;
+  }
+
+  .conjugate-focus-card .quiz-subjunctive-marker,
+  .conjugate-focus-card .quiz-pronoun,
+  .conjugate-focus-card .quiz-word {
+    font-size: 1.15rem;
+  }
+
+  .conjugate-focus-card .quiz-input {
+    padding: 6px 14px;
+  }
+
+  .conjugate-focus-card .accent-toolbar {
+    margin-top: 4px;
+  }
+
+  .conjugate-focus-card .accent-btn {
+    min-width: 26px;
+    padding: 2px 5px;
+    font-size: 0.85rem;
+  }
+
+  .conjugate-focus-card .quiz-actions {
+    margin-top: 6px;
+  }
+
+  .conjugate-focus-card .hint-text {
+    margin-top: 3px;
+    font-size: 0.8rem;
+  }
+}
+
 .direction-toggle {
   display: flex;
   justify-content: center;
@@ -2383,7 +2473,11 @@ a.language-card:hover {
 
 .flip-hint {
   position: absolute;
-  top: -34px;
+  /* Sits just above the word (which is vertically centered on the card
+     face) instead of floating above the card itself -- falls back to the
+     old -34px perch only once the card gets too short for that to fit
+     without the arrow overlapping the word. */
+  top: max(-34px, calc(50% - 120px));
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -2533,7 +2627,11 @@ a.language-card:hover {
   display: flex;
   justify-content: center;
   max-width: var(--container-width);
-  margin: 0 auto 64px;
+  /* Top margin only matters when PracticeHistoryTable renders nothing (an
+     empty session) and this sits right under the page header's subtitle --
+     with a table in between, this collapses against .history-table-wrap's
+     own 28px bottom margin instead of stacking on top of it. */
+  margin: 28px auto 64px;
   padding: 0 24px;
 }
 
@@ -2649,6 +2747,11 @@ a.language-card:hover {
 
 .grammar-lede {
   max-width: 62ch;
+  /* Capped to a readable line length, but everything below it (the quick
+     take, the side-by-side cards, the tables) spans the full width of
+     .grammar-page-body -- without this, the lede hugs the left edge under
+     all that full-width content instead of sitting centered above it. */
+  margin: 0 auto;
   font-size: 1.05rem;
   line-height: 1.65;
   color: var(--color-text-muted);
