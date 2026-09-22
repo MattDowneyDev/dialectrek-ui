@@ -348,7 +348,6 @@ describe("opening and leaving a video", () => {
       />,
     );
     expect(screen.getByRole("heading", { name: "Video One" })).toBeInTheDocument();
-    expect(screen.getByText(/Channel One · 1:05/)).toBeInTheDocument();
     expect(screen.getByTestId("youtube-player")).toHaveTextContent("yt1");
     expect(screen.getByRole("button", { name: /2/ })).toBeInTheDocument();
     expect(screen.getByLabelText("Dislike")).toBeInTheDocument();
@@ -507,9 +506,9 @@ describe("watch goal bar", () => {
     vi.useRealTimers();
   });
 
-  const goalLabel = () => document.querySelector(".goal-bar-label")?.textContent;
+  const goalLabel = () => document.querySelector(".goal-bar-value")?.textContent;
 
-  test("shows 0:00 / 10:00 on the browse grid before any video is opened", () => {
+  test("is not shown on the browse grid -- only once a video is open, in focus mode", () => {
     render(
       <WatchClient
         code="es"
@@ -519,7 +518,7 @@ describe("watch goal bar", () => {
         initialSeed={1}
       />,
     );
-    expect(goalLabel()).toBe("0:00 / 10:00");
+    expect(document.querySelector(".goal-bar")).not.toBeInTheDocument();
   });
 
   test("counts up only while the player reports PLAYING", async () => {
@@ -603,6 +602,7 @@ describe("watch goal bar", () => {
 
   test("starts from today's already-stored progress instead of 0", () => {
     vi.mocked(readDailyWatchSeconds).mockReturnValue(120);
+    setSearchParams("video=v1");
     render(
       <WatchClient
         code="es"
@@ -654,6 +654,7 @@ describe("watch goal bar", () => {
   });
 
   test("clicking the bar opens a goal stepper seeded with the current goal", () => {
+    setSearchParams("video=v1");
     render(
       <WatchClient
         code="es"
@@ -669,6 +670,7 @@ describe("watch goal bar", () => {
   });
 
   test("the +/- buttons adjust and persist the goal by 5 minutes, without closing", () => {
+    setSearchParams("video=v1");
     render(
       <WatchClient
         code="es"
@@ -693,6 +695,7 @@ describe("watch goal bar", () => {
   });
 
   test("the stepper won't go below 5 minutes", () => {
+    setSearchParams("video=v1");
     render(
       <WatchClient
         code="es"
@@ -711,6 +714,7 @@ describe("watch goal bar", () => {
   });
 
   test("typing a custom value and blurring commits and persists it", () => {
+    setSearchParams("video=v1");
     render(
       <WatchClient
         code="es"
@@ -730,6 +734,7 @@ describe("watch goal bar", () => {
   });
 
   test("submitting the input (Enter) commits the same way as blurring", () => {
+    setSearchParams("video=v1");
     render(
       <WatchClient
         code="es"
@@ -749,6 +754,7 @@ describe("watch goal bar", () => {
   });
 
   test("clearing the input and blurring reverts to the current goal instead of applying nothing", () => {
+    setSearchParams("video=v1");
     render(
       <WatchClient
         code="es"
@@ -769,6 +775,7 @@ describe("watch goal bar", () => {
   });
 
   test("clicking outside the dropdown closes it without changing the goal", () => {
+    setSearchParams("video=v1");
     render(
       <WatchClient
         code="es"

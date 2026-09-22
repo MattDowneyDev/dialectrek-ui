@@ -135,7 +135,7 @@ const GoalBar = ({
           sit directly on the plain track background with poor contrast. */}
       <span className={`goal-bar-label${hasTarget ? "" : " goal-bar-label--plain"}`}>
         <span className="goal-bar-caption">{caption}</span>
-        {label}
+        <span className="goal-bar-value">{label}</span>
       </span>
     </>
   );
