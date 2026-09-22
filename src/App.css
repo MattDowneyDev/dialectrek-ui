@@ -2163,12 +2163,21 @@ a.language-card:hover {
   margin-top: 4px;
 }
 
+/* Portrait phones have the vertical room to spare, so stack the four
+   options in a single column instead of squeezing two per row. */
+@media (max-width: 600px) and (orientation: portrait) {
+  .quiz-choices {
+    grid-template-columns: 1fr;
+  }
+}
+
 .quiz-choice {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  min-width: 0;
   padding: 14px 34px;
   font-size: 1.05rem;
   border-radius: var(--radius-md);
@@ -2177,6 +2186,13 @@ a.language-card:hover {
   color: var(--color-text);
   cursor: pointer;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.quiz-choice span {
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  text-align: center;
 }
 
 .quiz-choice:not(:disabled):hover {
@@ -2205,6 +2221,17 @@ a.language-card:hover {
 @media (prefers-reduced-motion: reduce) {
   .quiz-choice.incorrect {
     animation: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .quiz-choice {
+    padding: 12px 26px;
+    font-size: 0.95rem;
+  }
+
+  .quiz-choice-icon {
+    right: 6px;
   }
 }
 
