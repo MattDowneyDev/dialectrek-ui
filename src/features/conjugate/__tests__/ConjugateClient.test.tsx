@@ -438,11 +438,11 @@ describe("daily goal bar", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
   });
 
-  test("defaults to a 15-minute daily goal", async () => {
+  test("defaults to a 10-minute daily goal", async () => {
     render(<ConjugateClient code="es" definition={definition} initialTenses={["present"]} />);
     await flush();
 
-    expect(document.querySelector(".goal-bar-label")?.textContent).toBe("0:00 / 15:00");
+    expect(document.querySelector(".goal-bar-label")?.textContent).toBe("0:00 / 10:00");
   });
 
   test("changing the goal updates the target and persists it", async () => {

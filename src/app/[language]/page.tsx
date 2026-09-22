@@ -63,14 +63,10 @@ const HomePage = async ({ params }: PageProps) => {
             icon={<WatchIcon />}
           />
           <ActionCard
-            to={`/${language}/verbs`}
-            title="Look up verbs"
-            description={
-              definition.hasVerbs
-                ? "Browse the verb list and find a conjugation fast."
-                : "Coming soon."
-            }
-            icon={<SearchIcon />}
+            to={`/${language}/flashcards`}
+            title="Study flashcards"
+            description="Flip through the most common words until they stick."
+            icon={<StackIcon />}
           />
           <ActionCard
             to={`/${language}/conjugate`}
@@ -83,10 +79,14 @@ const HomePage = async ({ params }: PageProps) => {
             icon={<GridIcon />}
           />
           <ActionCard
-            to={`/${language}/flashcards`}
-            title="Study flashcards"
-            description="Flip through the most common words until they stick."
-            icon={<StackIcon />}
+            to={`/${language}/verbs`}
+            title="Look up verbs"
+            description={
+              definition.hasVerbs
+                ? "Browse the verb list and find a conjugation fast."
+                : "Coming soon."
+            }
+            icon={<SearchIcon />}
           />
           <ActionCard
             to={`/${language}/grammar`}

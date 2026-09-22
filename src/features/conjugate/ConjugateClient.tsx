@@ -119,6 +119,24 @@ const ConjugateClient = ({ code, definition, initialTenses }: ConjugateClientPro
     setElapsedSeconds(readDailyConjugateSeconds());
   }, []);
 
+  // Answers the back button by stepping back through the setup wizard one
+  // question at a time -- pairs with pushStep/handlePracticeAgain above.
+  // event.state is whatever that entry's pushStep call stored; landing on
+  // the original (pre-wizard) entry means event.state is null, which is
+  // step 0. Also drops out of the summary screen, since backing out of
+  // active practice or its summary both land on a wizard step, never on
+  // active practice itself (see pushStep's call sites -- nothing ever
+  // pushes an entry mid-practice, only on the way into it).
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      const target = event.state?.stepIndex;
+      setStepIndex(typeof target === "number" ? target : 0);
+      setIsSessionSummary(false);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
   useEffect(() => {
     if (!isActiveConjugation) return;
     const interval = setInterval(() => {
@@ -151,18 +169,31 @@ const ConjugateClient = ({ code, definition, initialTenses }: ConjugateClientPro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Every setup step (and the step into active practice, in
+  // handleTenseConfirm below) pushes a same-page history entry keyed by the
+  // step it's moving *to* -- so the browser's back button steps back
+  // through the wizard one question at a time instead of leaving the page,
+  // driven entirely by the popstate listener below re-reading stepIndex
+  // off event.state.
+  const pushStep = (nextStepIndex: number) => {
+    window.history.pushState({ stepIndex: nextStepIndex }, "");
+  };
+
   const handleIrregularityQuestion = (userResponse: boolean) => {
     setUseIrregularVerbs(userResponse);
+    pushStep(stepIndex + 1);
     setStepIndex((i) => i + 1);
   };
 
   const handleToggleAnswer = (key: string, userResponse: boolean) => {
     setToggleAnswers((prev) => ({ ...prev, [key]: userResponse }));
+    pushStep(stepIndex + 1);
     setStepIndex((i) => i + 1);
   };
 
   const handleMoodSelection = (choice: MoodChoice) => {
     setMoodSelection(choice);
+    pushStep(stepIndex + 1);
     setStepIndex((i) => i + 1);
   };
 
@@ -179,6 +210,7 @@ const ConjugateClient = ({ code, definition, initialTenses }: ConjugateClientPro
   };
 
   const handleTenseConfirm = () => {
+    pushStep(steps.length);
     fetchRandomVerbConjugation();
   };
 
@@ -188,6 +220,13 @@ const ConjugateClient = ({ code, definition, initialTenses }: ConjugateClientPro
   // fresh mount without initialTenses -- "practice again" always walks the
   // full wizard again, even if this session originally skipped it.
   const handlePracticeAgain = () => {
+    // Marks this as a fresh baseline (rather than leaving history pointed
+    // at the just-finished session's "entered practice" entry) so the
+    // wizard's own pushes below build on top of a step-0 entry that
+    // actually matches what's back on screen -- otherwise backing out of
+    // this new session could land back on the previous session's stale
+    // in-progress question instead of one of its own setup steps.
+    pushStep(0);
     setStepIndex(0);
     setIsSessionSummary(false);
     setHistory([]);

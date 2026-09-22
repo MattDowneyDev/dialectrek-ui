@@ -116,6 +116,15 @@ const FlashcardsClient = ({ code, definition }: FlashcardsClientProps) => {
   };
 
   const handleConfirmCategories = () => {
+    // Pushes a same-page history entry so the browser's back button steps
+    // out of practice mode back to this category screen instead of leaving
+    // the page entirely -- see the popstate listener below. Skipped when
+    // we're already sitting on that pushed entry (e.g. re-confirming after
+    // "Choose different categories" without ever pressing back in between)
+    // so repeated sessions in one visit don't pile up redundant entries.
+    if (!window.history.state?.flashcardsPractice) {
+      window.history.pushState({ flashcardsPractice: true }, "");
+    }
     setIsConfirmed(true);
     loadNextWord();
   };
@@ -160,6 +169,20 @@ const FlashcardsClient = ({ code, definition }: FlashcardsClientProps) => {
   useEffect(() => {
     setGoalSeconds(readFlashcardsGoalSeconds());
     setElapsedSeconds(readDailyFlashcardsSeconds());
+  }, []);
+
+  // Answers the back button while practicing (or reviewing the session
+  // summary) by dropping back to the category screen, rather than leaving
+  // the page -- pairs with the pushState in handleConfirmCategories. A
+  // popstate here always means "landed back on the pre-practice entry", so
+  // it resets unconditionally rather than inspecting event.state.
+  useEffect(() => {
+    const handlePopState = () => {
+      setIsConfirmed(false);
+      setIsSessionSummary(false);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
   const isSetupStep = !isConfirmed;
