@@ -596,7 +596,11 @@ const WatchClient = ({
               </div>
 
               <div className="watch-random-row">
-                <Button variant="ghost" onClick={backToBrowse}>
+                <Button
+                  variant="ghost"
+                  className="watch-back-button"
+                  onClick={backToBrowse}
+                >
                   ← All videos
                 </Button>
                 <Button
