@@ -12,6 +12,9 @@ import VerbTypeSelection from "./VerbTypeSelection";
 import MoodSelection, { type MoodChoice } from "./MoodSelection";
 import TenseSelection from "./TenseSelection";
 import ConjugationInput from "./ConjugationInput";
+import ConjugationChoices from "./ConjugationChoices";
+import { fetchAnswerChoices } from "./choices";
+import { useIsCompactViewport, isCompactViewport } from "../../hooks/useIsCompactViewport";
 import { fetchRandomVerbConjugation as fetchVerb } from "../../languages/api";
 import type { LanguageDefinition } from "../../languages/registry";
 import type { Mood, Polarity, Tense, VerbConjugation } from "../../languages/types";
@@ -83,6 +86,17 @@ const ConjugateClient = ({ code, definition, initialTenses }: ConjugateClientPro
   const [userGuess, setUserGuess] = useState<string>("");
   const [showHint, setShowHint] = useState<boolean>(false);
   const [showAnswer, setShowAnswer] = useState<boolean>(false);
+  // Multiple-choice mode's answer options for the verb on screen -- undefined
+  // while they're being fetched, null once fetched if there weren't enough
+  // distinct wrong forms to build a question from (falls back to typed
+  // input for that one verb). Only ever populated on a compact viewport;
+  // see fetchRandomVerbConjugation.
+  const [answerChoices, setAnswerChoices] = useState<string[] | null | undefined>(undefined);
+  // The option picked in multiple-choice mode, right or wrong -- there's no
+  // retry here (unlike typed input): whatever gets picked resolves the
+  // question and auto-advances shortly after (see handleSelectChoice).
+  const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
+  const isCompact = useIsCompactViewport();
   // Identifies which verb is currently on screen, for ConjugationInput's
   // animationKey.
   const [questionIndex, setQuestionIndex] = useState<number>(0);
@@ -152,6 +166,21 @@ const ConjugateClient = ({ code, definition, initialTenses }: ConjugateClientPro
   // immediately -- persisting on that first pass would momentarily clobber
   // today's real total with 0 the instant this component (re)mounts.
   const hasPersistedOnce = useRef(false);
+  // Bumped on every fetchRandomVerbConjugation call -- the trailing
+  // fetchAnswerChoices request checks this before applying its result, so a
+  // rapid "Next Verb" tap can't have an older question's choices land after
+  // a newer one has already started loading.
+  const choicesRequestIdRef = useRef(0);
+  // Multiple-choice mode auto-advances a short beat after any pick (right or
+  // wrong) instead of waiting for a "Next Verb" tap -- this holds that
+  // pending timer so it can be cancelled if the user stops practice (or the
+  // component unmounts) before it fires.
+  const autoAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (autoAdvanceTimeoutRef.current) clearTimeout(autoAdvanceTimeoutRef.current);
+    };
+  }, []);
   useEffect(() => {
     if (!hasPersistedOnce.current) {
       hasPersistedOnce.current = true;
@@ -214,12 +243,22 @@ const ConjugateClient = ({ code, definition, initialTenses }: ConjugateClientPro
     fetchRandomVerbConjugation();
   };
 
-  const handleStop = () => setIsSessionSummary(true);
+  const handleStop = () => {
+    if (autoAdvanceTimeoutRef.current) {
+      clearTimeout(autoAdvanceTimeoutRef.current);
+      autoAdvanceTimeoutRef.current = null;
+    }
+    setIsSessionSummary(true);
+  };
 
   // Resets every setup choice back to its pre-wizard state, same as a
   // fresh mount without initialTenses -- "practice again" always walks the
   // full wizard again, even if this session originally skipped it.
   const handlePracticeAgain = () => {
+    if (autoAdvanceTimeoutRef.current) {
+      clearTimeout(autoAdvanceTimeoutRef.current);
+      autoAdvanceTimeoutRef.current = null;
+    }
     // Marks this as a fresh baseline (rather than leaving history pointed
     // at the just-finished session's "entered practice" entry) so the
     // wizard's own pushes below build on top of a step-0 entry that
@@ -239,6 +278,8 @@ const ConjugateClient = ({ code, definition, initialTenses }: ConjugateClientPro
     setUserGuess("");
     setShowHint(false);
     setShowAnswer(false);
+    setAnswerChoices(undefined);
+    setSelectedChoice(null);
   };
 
   // GoalBar's onChangeTarget always passes a real number here -- allowNoLimit
@@ -326,6 +367,20 @@ const ConjugateClient = ({ code, definition, initialTenses }: ConjugateClientPro
     }
   };
 
+  // Multiple-choice mode's equivalent of handleSubmitGuess -- a pick is
+  // graded the instant it's made, and there's no retry or Next Verb button:
+  // right or wrong, it resolves the question and auto-advances on its own
+  // shortly after, so the picked answer stays on screen just long enough to
+  // register before the next verb replaces it.
+  const handleSelectChoice = (choice: string) => {
+    if (selectedChoice !== null) return;
+    setSelectedChoice(choice);
+    recordHistory(choice === randomVerb?.form_target);
+    autoAdvanceTimeoutRef.current = setTimeout(() => {
+      fetchRandomVerbConjugation();
+    }, 900);
+  };
+
   // Giving up (rather than answering correctly) also resolves the question
   // -- logs it right away instead of waiting for "Next Verb", same as a
   // correct guess does in handleSubmitGuess.
@@ -335,6 +390,7 @@ const ConjugateClient = ({ code, definition, initialTenses }: ConjugateClientPro
   };
 
   const fetchRandomVerbConjugation = async () => {
+    const requestId = ++choicesRequestIdRef.current;
     const tense = resolveTense();
     const verb = await fetchVerb(
       code,
@@ -344,13 +400,24 @@ const ConjugateClient = ({ code, definition, initialTenses }: ConjugateClientPro
       tense,
       resolvePolarity(tense),
     );
+    if (requestId !== choicesRequestIdRef.current) return;
     setRandomVerb(verb ?? null);
     setStepIndex(steps.length);
     setIsCorrectAnswer("");
     setUserGuess("");
     setShowHint(false);
     setShowAnswer(false);
+    setSelectedChoice(null);
     setQuestionIndex((prev) => prev + 1);
+
+    if (verb && isCompactViewport()) {
+      setAnswerChoices(undefined);
+      const choices = await fetchAnswerChoices(code, verb);
+      if (requestId !== choicesRequestIdRef.current) return;
+      setAnswerChoices(choices);
+    } else {
+      setAnswerChoices(null);
+    }
   };
 
   const isSetupStep = stepIndex < steps.length;
@@ -437,21 +504,32 @@ const ConjugateClient = ({ code, definition, initialTenses }: ConjugateClientPro
           <div className="focus-mode-body focus-mode-body--stacked">
             <div className="focus-mode-stage">
               <div className="conjugate-focus-card">
-                <ConjugationInput
-                  randomVerb={randomVerb}
-                  tenseLabels={definition.tenseLabels}
-                  accentChars={definition.accentChars}
-                  handleInputChange={handleInputChange}
-                  handleSubmitGuess={handleSubmitGuess}
-                  isCorrectAnswer={isCorrectAnswer}
-                  fetchRandomVerbConjugation={fetchRandomVerbConjugation}
-                  userGuess={userGuess}
-                  showHint={showHint}
-                  onShowHint={() => setShowHint(true)}
-                  showAnswer={showAnswer}
-                  onShowAnswer={handleShowAnswer}
-                  questionKey={questionIndex}
-                />
+                {isCompact && answerChoices !== null ? (
+                  <ConjugationChoices
+                    randomVerb={randomVerb}
+                    tenseLabels={definition.tenseLabels}
+                    choices={answerChoices ?? null}
+                    selectedChoice={selectedChoice}
+                    onSelectChoice={handleSelectChoice}
+                    questionKey={questionIndex}
+                  />
+                ) : (
+                  <ConjugationInput
+                    randomVerb={randomVerb}
+                    tenseLabels={definition.tenseLabels}
+                    accentChars={definition.accentChars}
+                    handleInputChange={handleInputChange}
+                    handleSubmitGuess={handleSubmitGuess}
+                    isCorrectAnswer={isCorrectAnswer}
+                    fetchRandomVerbConjugation={fetchRandomVerbConjugation}
+                    userGuess={userGuess}
+                    showHint={showHint}
+                    onShowHint={() => setShowHint(true)}
+                    showAnswer={showAnswer}
+                    onShowAnswer={handleShowAnswer}
+                    questionKey={questionIndex}
+                  />
+                )}
               </div>
             </div>
 
