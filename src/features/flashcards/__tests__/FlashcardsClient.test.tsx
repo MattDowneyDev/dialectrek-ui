@@ -17,6 +17,7 @@ const definition: LanguageDefinition = {
   verbCount: 10,
   wordCount: 500,
   tenseLabels: {} as LanguageDefinition["tenseLabels"],
+  tenseExamples: {} as LanguageDefinition["tenseExamples"],
   availableTenses: [],
   indicativeOnlyTenses: [],
   hasSubjunctive: false,
@@ -31,6 +32,14 @@ const flush = async () => {
     await Promise.resolve();
     await Promise.resolve();
   });
+};
+
+// Picks "All words" and confirms -- the setup screen's default path into
+// practice mode, used by most tests below that don't care which specific
+// categories ended up selected.
+const chooseAllWordsAndGo = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.click(screen.getByRole("button", { name: "All words" }));
+  await user.click(screen.getByRole("button", { name: "Let's go!" }));
 };
 
 beforeEach(() => {
@@ -49,6 +58,71 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+describe("category screen", () => {
+  test("shows only the title, subtitle, and category cards -- no progress meter yet", async () => {
+    render(<FlashcardsClient code="es" definition={definition} />);
+    await flush();
+
+    expect(screen.getByText("Flashcards")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "All words" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Greetings" })).toBeInTheDocument();
+    expect(document.querySelector(".goal-bar-label")).not.toBeInTheDocument();
+  });
+
+  test("multiple categories can be selected before confirming", async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetchWordCategories).mockResolvedValue(["greetings", "food"]);
+    render(<FlashcardsClient code="es" definition={definition} />);
+    await flush();
+
+    const letsGo = screen.getByRole("button", { name: "Let's go!" });
+    expect(letsGo).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Greetings" }));
+    await user.click(screen.getByRole("button", { name: "Food" }));
+    expect(screen.getByRole("button", { name: "Greetings" })).toHaveClass(
+      "selection-card--selected",
+    );
+    expect(screen.getByRole("button", { name: "Food" })).toHaveClass(
+      "selection-card--selected",
+    );
+    expect(letsGo).toBeEnabled();
+
+    await user.click(letsGo);
+    await flush();
+    expect(screen.getByLabelText("Flip flashcard")).toBeInTheDocument();
+  });
+});
+
+describe("full-screen practice mode", () => {
+  test("hides the site header/footer for as long as practice is active, and restores them on stop", async () => {
+    const user = userEvent.setup();
+    render(<FlashcardsClient code="es" definition={definition} />);
+    await flush();
+
+    expect(document.body).not.toHaveClass("focus-mode-open");
+
+    await chooseAllWordsAndGo(user);
+    await flush();
+    expect(document.body).toHaveClass("focus-mode-open");
+
+    await user.click(screen.getByRole("button", { name: "Stop practice" }));
+    expect(document.body).not.toHaveClass("focus-mode-open");
+  });
+
+  test("removes the focus-mode class if the component unmounts mid-practice", async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<FlashcardsClient code="es" definition={definition} />);
+    await flush();
+    await chooseAllWordsAndGo(user);
+    await flush();
+    expect(document.body).toHaveClass("focus-mode-open");
+
+    unmount();
+    expect(document.body).not.toHaveClass("focus-mode-open");
+  });
+});
+
 describe("daily goal bar", () => {
   beforeEach(() => {
     // shouldAdvanceTime keeps the fake clock ticking alongside real time,
@@ -58,8 +132,12 @@ describe("daily goal bar", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
   });
 
-  test("defaults to a 15-minute daily goal", async () => {
+  test("defaults to a 15-minute daily goal once practice starts", async () => {
+    const user = userEvent.setup({ delay: null });
     render(<FlashcardsClient code="es" definition={definition} />);
+    await flush();
+
+    await chooseAllWordsAndGo(user);
     await flush();
 
     expect(document.querySelector(".goal-bar-label")?.textContent).toBe("0:00 / 15:00");
@@ -68,6 +146,9 @@ describe("daily goal bar", () => {
   test("changing the goal updates the target and persists it", async () => {
     const user = userEvent.setup({ delay: null });
     render(<FlashcardsClient code="es" definition={definition} />);
+    await flush();
+
+    await chooseAllWordsAndGo(user);
     await flush();
 
     await user.click(screen.getByRole("button", { name: "Change today's flashcards goal" }));
@@ -86,7 +167,7 @@ describe("daily goal bar", () => {
 
     // Leaves the category-setup step, which starts the practice screen and
     // the daily-goal ticker.
-    await user.click(screen.getByRole("button", { name: "All words" }));
+    await chooseAllWordsAndGo(user);
     await flush();
 
     await act(async () => {
@@ -106,7 +187,7 @@ describe("layout stability", () => {
     const user = userEvent.setup();
     render(<FlashcardsClient code="es" definition={definition} />);
     await flush();
-    await user.click(screen.getByRole("button", { name: "All words" }));
+    await chooseAllWordsAndGo(user);
     await flush();
 
     // Mounted (and reserving its row's height) from the start, just
@@ -123,25 +204,28 @@ describe("layout stability", () => {
   });
 });
 
-describe("practice history table", () => {
+describe("session summary", () => {
   const startPractice = async (user: ReturnType<typeof userEvent.setup>) => {
     render(<FlashcardsClient code="es" definition={definition} />);
     await flush();
-    await user.click(screen.getByRole("button", { name: "All words" }));
+    await chooseAllWordsAndGo(user);
     await flush();
-    await user.click(screen.getByLabelText("Flip flashcard"));
   };
 
-  test("does not show a table until a word has been answered", async () => {
+  test("does not show the practice history table during practice", async () => {
     const user = userEvent.setup();
     await startPractice(user);
+    await user.click(screen.getByLabelText("Flip flashcard"));
+    await user.click(screen.getByRole("button", { name: "I knew it" }));
+    await flush();
 
     expect(document.querySelector(".history-table-wrap")).not.toBeInTheDocument();
   });
 
-  test("logs a Correct row when 'I knew it' is clicked", async () => {
+  test("stopping shows a summary of the words covered this session", async () => {
     const user = userEvent.setup();
     await startPractice(user);
+    await user.click(screen.getByLabelText("Flip flashcard"));
 
     vi.mocked(fetchRandomWord).mockResolvedValueOnce({
       rank: 2,
@@ -152,6 +236,9 @@ describe("practice history table", () => {
     await user.click(screen.getByRole("button", { name: "I knew it" }));
     await flush();
 
+    await user.click(screen.getByRole("button", { name: "Stop practice" }));
+
+    expect(screen.getByText("Session summary")).toBeInTheDocument();
     const rows = document.querySelectorAll(".history-table tbody tr");
     expect(rows).toHaveLength(1);
     expect(within(rows[0] as HTMLElement).getByText("hola")).toBeInTheDocument();
@@ -161,9 +248,10 @@ describe("practice history table", () => {
     ).toBeInTheDocument();
   });
 
-  test("logs an Incorrect row when 'I didn't know it' is clicked", async () => {
+  test("logs an Incorrect row for a word answered wrong", async () => {
     const user = userEvent.setup();
     await startPractice(user);
+    await user.click(screen.getByLabelText("Flip flashcard"));
 
     vi.mocked(fetchRandomWord).mockResolvedValueOnce({
       rank: 2,
@@ -174,10 +262,63 @@ describe("practice history table", () => {
     await user.click(screen.getByRole("button", { name: "I didn't know it" }));
     await flush();
 
+    await user.click(screen.getByRole("button", { name: "Stop practice" }));
+
     const rows = document.querySelectorAll(".history-table tbody tr");
     expect(rows).toHaveLength(1);
     expect(
       within(rows[0] as HTMLElement).getByRole("img", { name: "Incorrect" }),
     ).toBeInTheDocument();
+  });
+
+  test("summary subtitle reports the score as a fraction and percentage", async () => {
+    const user = userEvent.setup();
+    await startPractice(user);
+    await user.click(screen.getByLabelText("Flip flashcard"));
+
+    vi.mocked(fetchRandomWord).mockResolvedValueOnce({
+      rank: 2,
+      word_target: "adiós",
+      word_english: "goodbye",
+      category: "greetings",
+    });
+    await user.click(screen.getByRole("button", { name: "I knew it" }));
+    await flush();
+    await user.click(screen.getByLabelText("Flip flashcard"));
+
+    vi.mocked(fetchRandomWord).mockResolvedValueOnce({
+      rank: 3,
+      word_target: "gracias",
+      word_english: "thank you",
+      category: "greetings",
+    });
+    await user.click(screen.getByRole("button", { name: "I didn't know it" }));
+    await flush();
+
+    await user.click(screen.getByRole("button", { name: "Stop practice" }));
+
+    expect(screen.getByText("You got 1 right out of 2 (50%).")).toBeInTheDocument();
+  });
+
+  test("choosing different categories from the summary returns to the category screen with a clean slate", async () => {
+    const user = userEvent.setup();
+    await startPractice(user);
+    await user.click(screen.getByLabelText("Flip flashcard"));
+    await user.click(screen.getByRole("button", { name: "I knew it" }));
+    await flush();
+    await user.click(screen.getByRole("button", { name: "Stop practice" }));
+
+    await user.click(screen.getByRole("button", { name: "Choose different categories" }));
+
+    const allWords = screen.getByRole("button", { name: "All words" });
+    expect(allWords).toBeInTheDocument();
+    expect(allWords).not.toHaveClass("selection-card--selected");
+
+    // Starting a fresh session shouldn't carry over the previous one's
+    // history into its summary.
+    await chooseAllWordsAndGo(user);
+    await flush();
+    await user.click(screen.getByRole("button", { name: "Stop practice" }));
+    expect(document.querySelector(".history-table-wrap")).not.toBeInTheDocument();
   });
 });

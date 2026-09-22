@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import ConjugateClient from "../ConjugateClient";
 import { fetchRandomVerbConjugation } from "../../../languages/api";
 import type { LanguageDefinition } from "../../../languages/registry";
-import type { Tense, VerbConjugation } from "../../../languages/types";
+import type { Tense, TenseExample, VerbConjugation } from "../../../languages/types";
 
 vi.mock("../../../languages/api");
 
@@ -22,6 +22,20 @@ const tenseLabels: Record<Tense, string> = {
   imperative: "Imperative",
 };
 
+const tenseExamples: Record<Tense, TenseExample> = {
+  present: { target: "Yo hablo", english: "I speak" },
+  preterite: { target: "Yo hablé", english: "I spoke" },
+  imperfect: { target: "Yo hablaba", english: "I was speaking" },
+  perfect: { target: "Yo he hablado", english: "I have spoken" },
+  future: { target: "Yo hablaré", english: "I will speak" },
+  future_perfect: { target: "Yo habré hablado", english: "I will have spoken" },
+  conditional: { target: "Yo hablaría", english: "I would speak" },
+  conditional_perfect: { target: "Yo habría hablado", english: "I would have spoken" },
+  preterite_perfect: { target: "Yo hube hablado", english: "I had spoken" },
+  pluperfect: { target: "Yo había hablado", english: "I had spoken" },
+  imperative: { target: "¡Habla!", english: "Speak!" },
+};
+
 const definition: LanguageDefinition = {
   code: "es",
   displayName: "Spanish",
@@ -32,6 +46,7 @@ const definition: LanguageDefinition = {
   verbCount: 10,
   wordCount: 10,
   tenseLabels,
+  tenseExamples,
   availableTenses: ["present", "imperfect", "preterite", "imperative"],
   indicativeOnlyTenses: ["preterite"],
   hasSubjunctive: true,
@@ -105,7 +120,7 @@ describe("setup wizard", () => {
     expect(screen.getByRole("button", { name: "Present" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Present" }));
-    await user.click(screen.getByRole("button", { name: "Let's conjugate!" }));
+    await user.click(screen.getByRole("button", { name: "Let's go!" }));
     await flush();
 
     expect(fetchRandomVerbConjugation).toHaveBeenCalledWith(
@@ -120,7 +135,7 @@ describe("setup wizard", () => {
     expect(document.querySelector(".step-progress")).not.toBeInTheDocument();
   });
 
-  test("select all / deselect all toggles every tense at once", async () => {
+  test("the All tenses card toggles every tense at once", async () => {
     const user = userEvent.setup();
     render(<ConjugateClient code="es" definition={definition} />);
 
@@ -128,12 +143,12 @@ describe("setup wizard", () => {
     await user.click(screen.getByRole("button", { name: "No" }));
     await user.click(screen.getByRole("button", { name: "Both" }));
 
-    const selectAll = screen.getByRole("button", { name: "Select all" });
-    await user.click(selectAll);
-    expect(screen.getByRole("button", { name: "Deselect all" })).toBeInTheDocument();
+    const allTenses = screen.getByRole("button", { name: "All tenses" });
+    await user.click(allTenses);
+    expect(allTenses).toHaveClass("selection-card--selected");
 
-    await user.click(screen.getByRole("button", { name: "Deselect all" }));
-    expect(screen.getByRole("button", { name: "Let's conjugate!" })).toBeDisabled();
+    await user.click(allTenses);
+    expect(screen.getByRole("button", { name: "Let's go!" })).toBeDisabled();
   });
 });
 
@@ -185,7 +200,7 @@ describe("answering questions", () => {
     expect(document.querySelector(".quiz-input-icon")).toHaveClass("correct");
   });
 
-  test("a correct guess shows an inline result icon and logs a Correct row right away", async () => {
+  test("a correct guess shows an inline result icon, and logs a Correct row once the session is stopped", async () => {
     const user = userEvent.setup();
     const input = await setupActiveQuestion();
 
@@ -194,33 +209,36 @@ describe("answering questions", () => {
 
     expect(document.querySelector(".quiz-input-icon")).toHaveClass("correct");
     expect(screen.getByRole("status")).toHaveTextContent("Correct!");
-    // The history table logs the question the instant the answer is
-    // resolved, not only once "Next Verb" is clicked.
-    expect(historyRows()).toHaveLength(1);
-    const [row] = historyRows();
-    expect(within(row).getByText("hablo")).toBeInTheDocument();
-    expect(within(row).getByRole("img", { name: "Correct" })).toBeInTheDocument();
+    // The history table only appears on the summary screen, not during
+    // active practice (see "does not show the practice history table
+    // during practice" below) -- this records the answer right away, but
+    // it isn't visible until "Stop practice" is clicked.
+    expect(document.querySelector(".history-table-wrap")).not.toBeInTheDocument();
 
     vi.mocked(fetchRandomVerbConjugation).mockResolvedValueOnce(tuVerb);
     await user.click(screen.getByRole("button", { name: "Next Verb" }));
     await flush();
 
     expect(screen.getByText("you speak")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Stop practice" }));
     expect(historyRows()).toHaveLength(1);
+    const [row] = historyRows();
+    expect(within(row).getByText("hablo")).toBeInTheDocument();
+    expect(within(row).getByRole("img", { name: "Correct" })).toBeInTheDocument();
   });
 
-  test("giving up logs an Incorrect row as soon as Show Answer is clicked, not before", async () => {
+  test("giving up logs an Incorrect row, visible once the session is stopped", async () => {
     const user = userEvent.setup();
     const input = await setupActiveQuestion();
 
     await user.type(input, "nope");
     await user.click(screen.getByRole("button", { name: "Check Answer" }));
-    expect(historyRows()).toHaveLength(0);
-
     await user.click(screen.getByRole("button", { name: "Show Hint" }));
-    expect(historyRows()).toHaveLength(0);
-
     await user.click(screen.getByRole("button", { name: "Show Answer" }));
+    expect(document.querySelector(".history-table-wrap")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Stop practice" }));
     expect(historyRows()).toHaveLength(1);
     expect(
       within(historyRows()[0]).getByRole("img", { name: "Incorrect" }),
@@ -322,7 +340,7 @@ describe("mood and polarity resolution", () => {
     await walkToTenseStep(user, "Both");
 
     await user.click(screen.getByRole("button", { name: "Preterite" }));
-    await user.click(screen.getByRole("button", { name: "Let's conjugate!" }));
+    await user.click(screen.getByRole("button", { name: "Let's go!" }));
     await flush();
 
     expect(fetchRandomVerbConjugation).toHaveBeenCalledWith(
@@ -341,7 +359,7 @@ describe("mood and polarity resolution", () => {
     await walkToTenseStep(user, "Both");
 
     await user.click(screen.getByRole("button", { name: "Imperfect" }));
-    await user.click(screen.getByRole("button", { name: "Let's conjugate!" }));
+    await user.click(screen.getByRole("button", { name: "Let's go!" }));
     await flush();
 
     expect(fetchRandomVerbConjugation).toHaveBeenCalledWith(
@@ -360,7 +378,7 @@ describe("mood and polarity resolution", () => {
     await walkToTenseStep(user, "Both");
 
     await user.click(screen.getByRole("button", { name: "Imperfect" }));
-    await user.click(screen.getByRole("button", { name: "Let's conjugate!" }));
+    await user.click(screen.getByRole("button", { name: "Let's go!" }));
     await flush();
 
     expect(fetchRandomVerbConjugation).toHaveBeenCalledWith(
@@ -378,7 +396,7 @@ describe("mood and polarity resolution", () => {
     await walkToTenseStep(user, "Subjunctive");
 
     await user.click(screen.getByRole("button", { name: "Imperfect" }));
-    await user.click(screen.getByRole("button", { name: "Let's conjugate!" }));
+    await user.click(screen.getByRole("button", { name: "Let's go!" }));
     await flush();
 
     expect(fetchRandomVerbConjugation).toHaveBeenCalledWith(
@@ -397,7 +415,7 @@ describe("mood and polarity resolution", () => {
     await walkToTenseStep(user, "Both");
 
     await user.click(screen.getByRole("button", { name: "Imperative" }));
-    await user.click(screen.getByRole("button", { name: "Let's conjugate!" }));
+    await user.click(screen.getByRole("button", { name: "Let's go!" }));
     await flush();
 
     expect(fetchRandomVerbConjugation).toHaveBeenCalledWith(
@@ -457,5 +475,74 @@ describe("daily goal bar", () => {
     expect(screen.queryByRole("heading", { name: /Time's up/ })).not.toBeInTheDocument();
     expect(document.querySelector(".goal-bar-label")?.textContent).toMatch(/^Goal reached!/);
     expect(screen.getByPlaceholderText("Enter your translation")).toBeInTheDocument();
+  });
+});
+
+describe("full-screen practice mode", () => {
+  test("hides the site header/footer for as long as practice is active, and restores them on stop", async () => {
+    const user = userEvent.setup();
+    render(<ConjugateClient code="es" definition={definition} initialTenses={["present"]} />);
+    await flush();
+
+    expect(document.body).toHaveClass("focus-mode-open");
+
+    await user.click(screen.getByRole("button", { name: "Stop practice" }));
+    expect(document.body).not.toHaveClass("focus-mode-open");
+  });
+});
+
+describe("session summary", () => {
+  test("does not show the practice history table until the session is stopped", async () => {
+    const user = userEvent.setup();
+    render(<ConjugateClient code="es" definition={definition} initialTenses={["present"]} />);
+    await flush();
+
+    const input = screen.getByPlaceholderText("Enter your translation");
+    await user.type(input, "hablo");
+    await user.click(screen.getByRole("button", { name: "Check Answer" }));
+
+    expect(document.querySelector(".history-table-wrap")).not.toBeInTheDocument();
+  });
+
+  test("summary subtitle reports the score as a fraction and percentage", async () => {
+    const user = userEvent.setup();
+    render(<ConjugateClient code="es" definition={definition} initialTenses={["present"]} />);
+    await flush();
+
+    const input = screen.getByPlaceholderText("Enter your translation");
+    await user.type(input, "hablo");
+    await user.click(screen.getByRole("button", { name: "Check Answer" }));
+
+    vi.mocked(fetchRandomVerbConjugation).mockResolvedValueOnce(tuVerb);
+    await user.click(screen.getByRole("button", { name: "Next Verb" }));
+    await flush();
+
+    await user.type(screen.getByPlaceholderText("Enter your translation"), "nope");
+    await user.click(screen.getByRole("button", { name: "Check Answer" }));
+    await user.click(screen.getByRole("button", { name: "Show Hint" }));
+    await user.click(screen.getByRole("button", { name: "Show Answer" }));
+
+    await user.click(screen.getByRole("button", { name: "Stop practice" }));
+
+    expect(screen.getByText("Session summary")).toBeInTheDocument();
+    expect(screen.getByText("You got 1 right out of 2 (50%).")).toBeInTheDocument();
+  });
+
+  test("practicing again returns to the start of the setup wizard with a clean slate", async () => {
+    const user = userEvent.setup();
+    render(<ConjugateClient code="es" definition={definition} initialTenses={["present"]} />);
+    await flush();
+
+    const input = screen.getByPlaceholderText("Enter your translation");
+    await user.type(input, "hablo");
+    await user.click(screen.getByRole("button", { name: "Check Answer" }));
+    await user.click(screen.getByRole("button", { name: "Stop practice" }));
+
+    await user.click(screen.getByRole("button", { name: "Practice again" }));
+
+    expect(
+      screen.getByRole("heading", { name: "Do you want irregular verbs?" }),
+    ).toBeInTheDocument();
+    expect(document.querySelector(".goal-bar-label")).not.toBeInTheDocument();
   });
 });

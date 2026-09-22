@@ -15,6 +15,16 @@ export type Tense =
 
 export type Polarity = "affirmative" | "negative";
 
+// A quick, always-regular illustration of what a tense actually looks
+// like (e.g. Spanish "hablar"/French "parler" -- first person singular,
+// or an imperative form for the tenses that don't have one) -- shown
+// under that tense's name on the tense-picker screen so a learner isn't
+// choosing "Pluperfect" from the name alone.
+export type TenseExample = {
+  target: string;
+  english: string;
+};
+
 export type VerbEntry = [string, string];
 
 export type VerbConjugation = {

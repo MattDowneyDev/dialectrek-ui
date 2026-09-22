@@ -1,4 +1,4 @@
-import type { GrammarTopic, GrammarTopicPreview, Tense } from "./types";
+import type { GrammarTopic, GrammarTopicPreview, Tense, TenseExample } from "./types";
 import { es } from "./es/config";
 import { fr } from "./fr/config";
 
@@ -18,6 +18,9 @@ export type LanguageDefinition = {
   verbCount: number;
   wordCount: number;
   tenseLabels: Record<Tense, string>;
+  // One regular verb, conjugated the same way in every tense (see
+  // TenseExample), shown alongside tenseLabels on the tense picker.
+  tenseExamples: Record<Tense, TenseExample>;
   // Which tenses this language's conjugation engine actually supports --
   // narrower than tenseLabels' keys while a language is still being built
   // out, so the practice setup only ever offers tenses that won't 422.

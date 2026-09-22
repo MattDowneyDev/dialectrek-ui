@@ -33,6 +33,19 @@
   }
 }
 
+/* Flashcards practice mode takes over the full screen like a modal (see
+   .focus-mode below) -- the site chrome is hidden rather than just
+   visually covered, so it's out of the tab order too, and scrolling is
+   locked so the fixed-position overlay can't be scrolled "past". */
+body.focus-mode-open {
+  overflow: hidden;
+}
+
+body.focus-mode-open .navbar,
+body.focus-mode-open .footer {
+  display: none;
+}
+
 /* ---------- Navbar ---------- */
 
 .navbar {
@@ -1199,13 +1212,62 @@ a.language-card:hover {
   padding: 0 24px;
 }
 
-/* The tense-picker step is a wide chip grid, not a single question or
-   answer input like the rest of this shared wrapper's steps -- give it
-   the site's full container width so its chips spread into a few wide
-   rows instead of a tall, narrow column. Matches
-   .flashcards-card--setup's reasoning for the same shape of content. */
+/* Same width as .practice-card, but for the question card once it's
+   inside .focus-mode-stage (a flex container, where a plain block with no
+   width of its own would shrink-to-fit its content instead of keeping the
+   page's usual practice-card width). Also caps its own height to what
+   the stage actually has free and lets it scroll internally past that --
+   unlike a flashcard's fixed word, this form's content (badges, sentence,
+   input, accent toolbar, hint area) can't be shrunk to fit, so a short
+   landscape window is handled by scrolling just this card instead of
+   overflowing the page. */
+.conjugate-focus-card {
+  width: 100%;
+  max-width: 640px;
+  max-height: 100%;
+  overflow-y: auto;
+}
+
+/* .question-card's entrance animation (see .question-card/@keyframes
+   card-in) includes a small translateY -- scrollable overflow is computed
+   from an element's *transformed* geometry, so for the ~0.25s that
+   animation runs, the translated card registers as taller than this
+   container and flashes a scrollbar that's gone by the time anyone could
+   actually use it. Dropping just the vertical motion here (keeping the
+   fade) avoids that without touching the same animation everywhere else
+   .question-card is used. */
+.conjugate-focus-card .question-card {
+  animation-name: card-in-fade;
+}
+
+@keyframes card-in-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* The tense-picker step is a card grid, not a single question or answer
+   input like the rest of this shared wrapper's steps -- give it more room
+   to lay out in than the fixed 640px every other step uses. The visible
+   card itself is capped back down to a deterministic width by the
+   ".question-card" rule below (see .flashcards-card--setup's identical
+   comment for why that's a fixed width rather than shrink-to-fit). */
 .practice-card--tenses {
   max-width: var(--container-width);
+}
+
+/* Both grid-picker steps' visible card, sized to exactly fit
+   .selection-grid's own fixed 820px width plus this card's 32px×2
+   padding -- deterministic on purpose (see the comments above) instead of
+   shrink-to-fit, so it can't render differently depending on how many
+   cards or how much text is inside the grid. */
+.flashcards-card--setup .question-card,
+.practice-card--tenses .question-card {
+  max-width: 884px;
+  margin: 0 auto;
 }
 
 .practice-stats {
@@ -1326,8 +1388,6 @@ a.language-card:hover {
 }
 
 .history-table-scroll {
-  max-height: 420px;
-  overflow-y: auto;
   overflow-x: auto;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -1360,8 +1420,6 @@ a.language-card:hover {
 }
 
 .history-table th {
-  position: sticky;
-  top: 0;
   background: var(--color-surface-alt);
   font-size: 0.75rem;
   font-weight: 600;
@@ -1544,20 +1602,6 @@ a.language-card:hover {
   flex-wrap: wrap;
 }
 
-.select-all-row {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 4px;
-}
-
-.chip-grid {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px;
-  margin-bottom: 28px;
-}
-
 .chip {
   border: 1.5px solid var(--color-border);
   background: var(--color-surface);
@@ -1578,6 +1622,102 @@ a.language-card:hover {
   background: var(--color-primary);
   border-color: var(--color-primary);
   color: #fff;
+}
+
+/* Shared by every "pick one (or more) of these" screen -- flashcards'
+   category picker, Conjugate's tense picker, and anything similar later --
+   via the SelectionGrid/SelectionCard components, so they all lay out and
+   style identically by construction instead of independently matching
+   class names that can drift apart. Caps and centers itself (rather than
+   just filling whatever width its wrapper happens to hand it) so the grid
+   comes out the same width -- and the same two-column shape -- everywhere
+   it's used, regardless of how many cards are in it or how much text is
+   in each one; leaving that to each wrapper's own layout (flex
+   shrink-to-fit vs. a plain block filling its container) is exactly what
+   made the category and tense grids drift to different widths before. */
+.selection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+  /* Wide enough for exactly 3 columns (3 * 200px cards + 2 * 14px gaps =
+     628px) but not a 4th (4 * 200px + 3 * 14px = 842px) -- see the
+     .question-card rule below for the matching card width. */
+  max-width: 820px;
+  margin: 0 auto 28px;
+}
+
+.selection-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+  border: 1.5px solid var(--color-border);
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+
+.selection-card:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.selection-card:active {
+  transform: scale(0.99);
+}
+
+/* The single "this one's the default/no-filter option" card in a group
+   (e.g. flashcards' "All words") -- a styling hint, not a toggle state. */
+.selection-card--highlighted {
+  background: var(--color-primary-light);
+  border-color: color-mix(in srgb, var(--color-primary) 25%, var(--color-border));
+}
+
+/* Toggled-on state for multi-select pickers (e.g. Conjugate's tenses), as
+   opposed to --highlighted's single "this one's the default option" look
+   -- filled solid rather than just tinted, matching .chip.selected's same
+   "on" state for the same kind of toggle elsewhere. */
+.selection-card--selected {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+/* Every text line inside a selected card needs to flip to a light color,
+   not just the title -- .selection-card-desc's default muted gray (and
+   .tense-example-target's slightly darker override on top of that) are
+   both meant for the plain white background, and read as barely-visible
+   dark-on-dark once the card is filled solid. */
+.selection-card--selected .selection-card-title,
+.selection-card--selected .selection-card-desc,
+.selection-card--selected .tense-example-target {
+  color: #fff;
+}
+
+.selection-card--selected .selection-card-desc {
+  opacity: 0.85;
+}
+
+.selection-card-title {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.selection-card-desc {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+/* The example phrase's own line within .selection-card-desc (e.g. "Yo
+   hablo" over "I speak" for Conjugate's tense cards) -- a shade darker
+   than the translation under it, so the two lines read as "the form" and
+   "what it means" rather than looking like one plain two-line sentence. */
+.tense-example-target {
+  color: var(--color-text);
 }
 
 .timer-dropdown-backdrop {
@@ -1859,7 +1999,7 @@ a.language-card:hover {
   display: flex;
   justify-content: center;
   gap: 12px;
-  margin-top: 20px;
+  margin-top: 28px;
   flex-wrap: wrap;
 }
 
@@ -1949,10 +2089,13 @@ a.language-card:hover {
 }
 
 /* Leaves room for .quiz-input-icon so it doesn't sit on top of longer
-   guesses -- only added once there's a result to show an icon for, so the
-   input stays symmetrically centered beforehand. */
+   guesses -- only added once there's a result to show an icon for. Padded
+   equally on both sides (not just the icon's side) so the input's content
+   box -- and therefore the centered text inside it -- stays centered on
+   the input itself instead of drifting away from the icon's side. */
 .quiz-input.correct,
 .quiz-input.incorrect {
+  padding-left: 44px;
   padding-right: 44px;
 }
 
@@ -1977,28 +2120,197 @@ a.language-card:hover {
   max-width: 480px;
   margin: 32px auto 64px;
   padding: 0 24px;
+}
+
+/* The category-picker step has no fixed-width flashcard to match, so its
+   wrapper's max-width is raised to the full site container width to give
+   it room. The visible card itself is then capped back down to a
+   deterministic width by the ".question-card" rule below (shared with
+   .practice-card--tenses's identical card), rather than by shrink-to-fit
+   -- nesting one intrinsically-sized (fit-content) box inside another
+   turned out to size the grid inconsistently depending on how much
+   content was in it, which is exactly the kind of drift this is trying
+   to avoid. */
+.flashcards-card--setup {
+  max-width: var(--container-width);
+}
+
+/* Practice mode's full-screen "modal" (see body.focus-mode-open,
+   which hides the site header/footer for as long as this is open). Fixed
+   and height-locked to the viewport rather than sized by its content, so
+   there's never anything to scroll -- the progress meter, card, and panel
+   below size *themselves* to fit inside it instead. */
+.focus-mode {
+  /* Shared with .focus-mode-panel in the landscape layout below, so
+     the panel's height (and therefore where its top/bottom-anchored
+     children land) always tracks the flashcard's own max-height instead
+     of the two being independently hand-tuned numbers that can drift out
+     of sync. */
+  --focus-card-max-height: 620px;
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  background: var(--color-bg);
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 20px 20px;
+}
+
+/* The progress meter runs the full width of the screen along the top,
+   rather than living inside the (narrower, off to one side in landscape)
+   panel with the rest of the practice controls. */
+.focus-mode-meter {
+  flex: 0 0 auto;
+  width: 100%;
+  /* Same cap (and side padding) as the goal bar on Watch/Conjugate -- see
+     .goal-bar-wrap -- so the bar itself ends up the same width on both
+     pages instead of full-bleed here making it noticeably wider the
+     instant this screen has more horizontal room than a phone. */
+  max-width: var(--container-width);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.focus-mode-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 28px;
+  justify-content: center;
+  gap: 16px;
 }
 
-/* The category-picker step has no fixed-width flashcard to match, so it
-   gets the full site container width instead -- otherwise its chips
-   wrap into a tall, narrow column instead of a few wide rows. */
-.flashcards-card--setup {
-  max-width: var(--container-width);
+.focus-mode-stage {
+  flex: 1 1 auto;
+  /* Flex items default to min-width/min-height:auto, which refuses to
+     shrink below the flashcard's own preferred (aspect-ratio-driven) size
+     -- without overriding both to 0, the card pushes the panel off the
+     edge of the screen in a row layout instead of scaling down to share
+     the space with it. */
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 36px;
+}
+
+.focus-mode-panel {
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.focus-mode-panel-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: 14px;
+}
+
+/* In landscape, height is the scarcer dimension (a stacked column has to
+   squeeze the card down to almost nothing to leave room for the panel
+   below it) while width is comparatively plentiful -- true on a phone
+   turned sideways as much as on a laptop window, so this triggers on
+   orientation alone rather than gating on a "desktop-sized" min-width. */
+@media (orientation: landscape) {
+  .focus-mode-body {
+    flex-direction: row;
+    align-items: stretch;
+    gap: clamp(16px, 4vw, 40px);
+    /* Same box as .focus-mode-meter (max-width, centering, and side
+       padding) so the card's left edge and the panel's right edge line up
+       with the progress meter's own edges instead of the row spreading
+       out to fill the full (unpadded-to-meter-width) available space. */
+    max-width: var(--container-width);
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  .focus-mode-stage {
+    height: 100%;
+    /* Left-aligned (instead of centered) so its edge actually lines up
+       with the meter above it -- centering would leave the card drifting
+       away from that edge as soon as the stage has more room than the
+       card wants. */
+    justify-content: flex-start;
+    /* Still needs clearance above the card for the flip-hint bubble (see
+       .flip-hint's -34px offset) -- the row layout has the same problem
+       as the stacked one, just with less spare vertical room to begin
+       with on a short landscape window, so this can't drop to 0 the way
+       the horizontal padding does. */
+    padding-top: 36px;
+  }
+
+  /* .focus-mode-panel/-panel-content mirror .focus-mode-stage/
+     .flashcard-wrap exactly (same height: 100%, same padding-top: 36px
+     reserved for the flip-hint, same --focus-card-max-height cap) -- the
+     panel content is centered within an identically-sized, identically-
+     offset box as the card, rather than the panel being centered as one
+     whole block within the full (unpadded) row height. Two boxes that are
+     each "centered within the same region, capped at the same height"
+     land on the same top and bottom edges; a panel centered a different
+     way than the card is centered would drift off by however much the
+     36px top padding shifts the card's own centering -- the more
+     approximate version of this rule got the language picker and "Stop
+     practice" close to the card's edges but not exactly on them. */
+  .focus-mode-panel {
+    flex: 0 0 min(280px, 34vw);
+    max-width: min(280px, 34vw);
+    height: 100%;
+    padding-top: 36px;
+    justify-content: center;
+  }
+
+  .focus-mode-panel-content {
+    height: 100%;
+    max-height: var(--focus-card-max-height, 620px);
+    justify-content: space-between;
+  }
+
+  /* Opts a feature out of the card/panel split above -- Conjugate's
+     practice screen is one cohesive form (question, input, accent
+     toolbar, and its own Check Answer/hint buttons), not a card with a
+     separate row of controls beside it, so it keeps the single centered
+     column from the non-landscape layout even once there's landscape
+     room to spare. */
+  .focus-mode-body--stacked {
+    flex-direction: column;
+    align-items: center;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .focus-mode-body--stacked .focus-mode-stage {
+    height: auto;
+    justify-content: center;
+    padding-top: 0;
+  }
 }
 
 .direction-toggle {
   display: flex;
   justify-content: center;
+  width: 100%;
 }
 
 .lang-toggle {
   position: relative;
   display: flex;
-  width: 220px;
+  width: 100%;
+  max-width: 220px;
   height: 40px;
   padding: 3px;
   border: 1px solid var(--color-border);
@@ -2045,14 +2357,24 @@ a.language-card:hover {
   }
 }
 
+/* Shrinks to fit whichever of .focus-mode-stage's two dimensions is
+   tighter, instead of just filling its width -- sized by height (up to
+   the stage's own height) with the width derived from that via the aspect
+   ratio, then capped by max-width for narrow viewports where width is the
+   binding constraint instead. Keeps the 3:2 card intact either way rather
+   than distorting it or overflowing the stage and forcing a scrollbar. */
 .flashcard-wrap {
   position: relative;
-  width: 100%;
+  width: auto;
+  height: 100%;
+  max-width: 100%;
+  max-height: var(--focus-card-max-height, 620px);
+  aspect-ratio: 3 / 2;
 }
 
 .flashcard {
   width: 100%;
-  aspect-ratio: 3 / 2;
+  height: 100%;
   -webkit-perspective: 1200px;
   perspective: 1200px;
   cursor: pointer;
@@ -2197,8 +2519,22 @@ a.language-card:hover {
 
 .flashcards-controls {
   display: flex;
-  align-items: center;
-  gap: 16px;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  gap: 10px;
+}
+
+.flashcards-controls .btn {
+  width: 100%;
+}
+
+.summary-actions {
+  display: flex;
+  justify-content: center;
+  max-width: var(--container-width);
+  margin: 0 auto 64px;
+  padding: 0 24px;
 }
 
 .flashcards-controls--hidden {

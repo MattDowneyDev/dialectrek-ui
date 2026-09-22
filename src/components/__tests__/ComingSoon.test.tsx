@@ -13,6 +13,7 @@ const baseDefinition: LanguageDefinition = {
   verbCount: 0,
   wordCount: 0,
   tenseLabels: {} as LanguageDefinition["tenseLabels"],
+  tenseExamples: {} as LanguageDefinition["tenseExamples"],
   availableTenses: [],
   indicativeOnlyTenses: [],
   hasSubjunctive: false,

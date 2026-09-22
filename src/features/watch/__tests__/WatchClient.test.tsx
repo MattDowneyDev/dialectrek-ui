@@ -71,6 +71,7 @@ const definition: LanguageDefinition = {
   verbCount: 1,
   wordCount: 1,
   tenseLabels: {} as LanguageDefinition["tenseLabels"],
+  tenseExamples: {} as LanguageDefinition["tenseExamples"],
   availableTenses: [],
   indicativeOnlyTenses: [],
   hasSubjunctive: false,
