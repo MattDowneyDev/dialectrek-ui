@@ -4165,6 +4165,16 @@ button.goal-bar-track:active {
   gap: 12px;
 }
 
+/* Below 1100px the buttons stack (each is full width, so they can't
+   share a row) -- push "All videos" after the random-video button in
+   that stacked order without touching their left-to-right order once
+   they're back to sharing a row at 1100px+. */
+@media (max-width: 1099px) {
+  .watch-back-button {
+    order: 1;
+  }
+}
+
 .watch-compare {
   background: var(--color-surface-alt);
   border: 1px solid var(--color-border);
