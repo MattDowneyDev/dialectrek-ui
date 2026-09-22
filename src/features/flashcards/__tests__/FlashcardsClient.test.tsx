@@ -140,7 +140,7 @@ describe("daily goal bar", () => {
     await chooseAllWordsAndGo(user);
     await flush();
 
-    expect(document.querySelector(".goal-bar-label")?.textContent).toBe("0:00 / 5:00");
+    expect(document.querySelector(".goal-bar-value")?.textContent).toBe("0:00 / 5:00");
   });
 
   test("changing the goal updates the target and persists it", async () => {
@@ -156,7 +156,7 @@ describe("daily goal bar", () => {
     fireEvent.change(input, { target: { value: "20" } });
     fireEvent.blur(input);
 
-    expect(document.querySelector(".goal-bar-label")?.textContent).toBe("0:00 / 20:00");
+    expect(document.querySelector(".goal-bar-value")?.textContent).toBe("0:00 / 20:00");
     expect(window.localStorage.getItem("dialectrek-flashcards-goal-seconds")).toBe("1200");
   });
 
@@ -178,7 +178,7 @@ describe("daily goal bar", () => {
     });
 
     expect(screen.queryByText(/^Time's up/)).not.toBeInTheDocument();
-    expect(document.querySelector(".goal-bar-label")?.textContent).toMatch(/^Goal reached!/);
+    expect(document.querySelector(".goal-bar-value")?.textContent).toMatch(/^Goal reached!/);
   });
 });
 

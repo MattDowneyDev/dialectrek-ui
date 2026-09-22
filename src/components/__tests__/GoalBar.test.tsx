@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import GoalBar from "../GoalBar";
 
-const label = () => document.querySelector(".goal-bar-label")?.textContent;
+const label = () => document.querySelector(".goal-bar-value")?.textContent;
 
 const baseProps = {
   caption: "Today's goal",

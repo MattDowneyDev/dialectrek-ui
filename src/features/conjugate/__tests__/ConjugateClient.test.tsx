@@ -442,7 +442,7 @@ describe("daily goal bar", () => {
     render(<ConjugateClient code="es" definition={definition} initialTenses={["present"]} />);
     await flush();
 
-    expect(document.querySelector(".goal-bar-label")?.textContent).toBe("0:00 / 10:00");
+    expect(document.querySelector(".goal-bar-value")?.textContent).toBe("0:00 / 10:00");
   });
 
   test("changing the goal updates the target and persists it", async () => {
@@ -455,7 +455,7 @@ describe("daily goal bar", () => {
     fireEvent.change(input, { target: { value: "20" } });
     fireEvent.blur(input);
 
-    expect(document.querySelector(".goal-bar-label")?.textContent).toBe("0:00 / 20:00");
+    expect(document.querySelector(".goal-bar-value")?.textContent).toBe("0:00 / 20:00");
     expect(window.localStorage.getItem("dialectrek-conjugate-goal-seconds")).toBe("1200");
   });
 
@@ -473,7 +473,7 @@ describe("daily goal bar", () => {
     // No stop screen -- the bar just reports the goal reached and
     // conjugating continues exactly as before.
     expect(screen.queryByRole("heading", { name: /Time's up/ })).not.toBeInTheDocument();
-    expect(document.querySelector(".goal-bar-label")?.textContent).toMatch(/^Goal reached!/);
+    expect(document.querySelector(".goal-bar-value")?.textContent).toMatch(/^Goal reached!/);
     expect(screen.getByPlaceholderText("Enter your translation")).toBeInTheDocument();
   });
 });

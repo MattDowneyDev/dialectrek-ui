@@ -41,6 +41,14 @@ body.focus-mode-open {
   overflow: hidden;
 }
 
+/* Watch's full-screen video view opts out of the scroll lock above (its
+   "More from this creator" rail sits below the player) -- two classes on
+   the selector outweighs the single-class rule above regardless of
+   stylesheet order, so this reliably wins once both classes are on body. */
+body.focus-mode-open.focus-mode-open--scrollable {
+  overflow: visible;
+}
+
 body.focus-mode-open .navbar,
 body.focus-mode-open .footer {
   display: none;
@@ -799,7 +807,7 @@ a.language-card:hover {
 
 .page-header {
   text-align: center;
-  padding: 48px 24px 8px;
+  padding: 28px 24px 8px;
 }
 
 .page-header h1 {
@@ -808,14 +816,41 @@ a.language-card:hover {
 }
 
 .page-header--compact h1 {
-  font-size: clamp(1.15rem, 1rem + 2vw, 1.75rem);
+  font-size: clamp(1rem, 0.9rem + 1vw, 1.25rem);
   line-height: 1.3;
   max-width: 720px;
   margin: 0 auto;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* Only Watch's video view uses --compact, and only for its title (no
+   subtitle/back link there anymore -- see WatchClient). At desktop/
+   landscape widths the video, vote buttons, and difficulty badge already
+   make it obvious what's playing, so the title's vertical space isn't
+   worth spending -- same visually-hidden technique as .sr-only (not
+   display: none) so it's still announced to screen readers and still
+   present for SEO, just not rendered on screen. Matches the breakpoint
+   where the player itself switches to the wider two-column layout (see
+   .watch-player-sidebar). */
+@media (min-width: 1100px) {
+  .page-header--compact {
+    padding: 0;
+  }
+
+  .page-header--compact h1 {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
 }
 
 .page-header p {
@@ -2162,6 +2197,21 @@ a.language-card:hover {
 /* The progress meter runs the full width of the screen along the top,
    rather than living inside the (narrower, off to one side in landscape)
    panel with the rest of the practice controls. */
+/* Watch's variant: drops the fixed positioning and viewport-height lock
+   above so children flow in the normal, scrollable page instead of being
+   squeezed into one fixed screen -- .watch-player and friends already
+   have their own tuned layout/spacing, so this wrapper stays a no-op
+   beyond the body-class chrome hiding. */
+.focus-mode--scrollable {
+  position: static;
+  inset: auto;
+  height: auto;
+  min-height: 100dvh;
+  display: block;
+  padding: 0;
+  gap: 0;
+}
+
 .focus-mode-meter {
   flex: 0 0 auto;
   width: 100%;
@@ -2328,6 +2378,14 @@ a.language-card:hover {
 
   .focus-mode-meter .goal-bar-caption {
     display: none;
+  }
+
+  /* Caption is hidden above, leaving the elapsed/target numbers as the
+     label's only child -- space-between (the default, for splitting
+     caption/numbers apart) would otherwise shove that lone child to one
+     edge instead of centering it. */
+  .focus-mode-meter .goal-bar-label {
+    justify-content: center;
   }
 
   .focus-mode-meter .goal-bar-track {
@@ -3746,21 +3804,11 @@ a.language-card:hover {
   margin: 0 0 8px;
 }
 
-.goal-bar-caption {
-  margin-bottom: 8px;
-  text-align: center;
-  font-size: 0.8rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--color-text-muted);
-}
-
 .goal-bar-track {
   position: relative;
   display: block;
   width: 100%;
-  height: 44px;
+  height: 34px;
   margin: 0;
   padding: 0;
   border: 1px solid var(--color-border);
@@ -3847,10 +3895,11 @@ button.goal-bar-track:active {
   z-index: 2;
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 0 16px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 14px;
   font-weight: 800;
-  font-size: 1rem;
+  font-size: 0.9rem;
   color: #fff;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
   font-variant-numeric: tabular-nums;
@@ -3860,6 +3909,20 @@ button.goal-bar-track:active {
 .goal-bar-label--plain {
   color: var(--color-text);
   text-shadow: none;
+}
+
+/* Was a separate centered line above the bar -- now lives inside the
+   meter itself, on the opposite side from the elapsed/target numbers, so
+   the whole thing (caption + progress) fits in one compact row instead of
+   two. Inherits the label's color/text-shadow so it stays readable over
+   both the fill and the plain track. */
+.goal-bar-caption {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.85;
+  white-space: nowrap;
 }
 
 .watch-like-button {
@@ -3924,6 +3987,8 @@ button.goal-bar-track:active {
 .watch-random-row {
   display: flex;
   justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .watch-compare {
@@ -4058,8 +4123,11 @@ button.goal-bar-track:active {
     flex: 0 0 300px;
   }
 
+  /* Two buttons now share the row (back to browse + watch random) --
+     flex instead of width:100% so they split it evenly rather than each
+     trying to claim the full width. */
   .watch-random-row .btn {
-    width: 100%;
+    flex: 1 1 0;
   }
 
   /* Matches the ranking box to the main column's rendered height (iframe
