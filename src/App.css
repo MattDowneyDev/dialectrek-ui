@@ -2186,6 +2186,12 @@ a.language-card:hover {
   color: var(--color-text);
   cursor: pointer;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  /* Without this, mobile Chrome/Safari paint their own gray tap-flash
+     overlay on top of whatever's tapped, and if the next verb's choices
+     render in before that overlay finishes fading it can appear to "stick"
+     to whichever button ends up in the same spot -- nothing to do with our
+     own correct/incorrect classes, which are applied correctly underneath. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 .quiz-choice span {
@@ -2195,9 +2201,17 @@ a.language-card:hover {
   text-align: center;
 }
 
-.quiz-choice:not(:disabled):hover {
-  border-color: var(--color-primary);
-  background: var(--color-primary-light);
+/* Touch browsers (mobile Safari especially) apply :hover on tap and don't
+   clear it until the next tap elsewhere on the page -- since this button
+   gets disabled and swapped out for a new question right after being
+   tapped, that stale hover can visually "stick" to whichever option ends
+   up in the same spot once the next verb renders. Scoping to devices that
+   actually have a hover-capable pointer avoids that. */
+@media (hover: hover) and (pointer: fine) {
+  .quiz-choice:not(:disabled):hover {
+    border-color: var(--color-primary);
+    background: var(--color-primary-light);
+  }
 }
 
 .quiz-choice:disabled {
