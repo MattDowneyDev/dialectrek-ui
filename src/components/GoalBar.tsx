@@ -134,6 +134,7 @@ const GoalBar = ({
           label's white text needs a dark color instead -- it'd otherwise
           sit directly on the plain track background with poor contrast. */}
       <span className={`goal-bar-label${hasTarget ? "" : " goal-bar-label--plain"}`}>
+        <span className="goal-bar-caption">{caption}</span>
         {label}
       </span>
     </>
@@ -141,7 +142,6 @@ const GoalBar = ({
 
   return (
     <div className="goal-bar">
-      <p className="goal-bar-caption">{caption}</p>
       {editable ? (
         <button
           type="button"

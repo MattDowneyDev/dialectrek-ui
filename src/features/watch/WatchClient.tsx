@@ -4,9 +4,9 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import Button from "../../components/Button";
 import EmptyState from "../../components/EmptyState";
+import FocusMode, { useFocusMode } from "../../components/FocusMode";
 import GoalBar from "../../components/GoalBar";
 import PageHeader from "../../components/PageHeader";
-import { formatDuration } from "../../lib/duration";
 import type { LanguageDefinition } from "../../languages/registry";
 import { compareVideos, dislikeVideo, fetchRelatedVideos, fetchVideos, likeVideo } from "./api";
 import CompareThumb from "./CompareThumb";
@@ -324,6 +324,12 @@ const WatchClient = ({
 
   const visibleVideos = videos;
 
+  // Same full-screen "focus mode" Flashcards/Conjugate use to hide the
+  // site chrome while practicing, but scrollable -- the player view keeps
+  // its own already-tuned layout (video, vote buttons, "more from this
+  // creator") in normal page flow instead of being locked to one screen.
+  useFocusMode(Boolean(activeVideo), { scrollable: true });
+
   // Fetches the "more from this creator" rail whenever the open video
   // changes. Depends on just the id (not the whole activeVideo object,
   // which gets a new identity every time `videos` is replaced below) so
@@ -493,26 +499,22 @@ const WatchClient = ({
     <div className="page">
       <WatchIntroModal />
 
-      <div className="goal-bar-wrap">
-        <GoalBar
-          elapsedSeconds={watchedSeconds}
-          targetSeconds={watchGoalSeconds}
-          onChangeTarget={handleChangeWatchGoal}
-          caption="Today's watch goal"
-          editLabel="Change today's watch goal"
-          subjectLabel="goal"
-          completeLabel="Goal reached!"
-          ctaLabel="Set a watch goal"
-        />
-      </div>
       {activeVideo ? (
-        <>
-          <PageHeader
-            title={activeVideo.title}
-            subtitle={`${activeVideo.channel} · ${formatDuration(activeVideo.durationSeconds)}`}
-            backTo={{ onClick: backToBrowse, label: "← All videos" }}
-            compact
-          />
+        <FocusMode scrollable>
+          <div className="goal-bar-wrap">
+            <GoalBar
+              elapsedSeconds={watchedSeconds}
+              targetSeconds={watchGoalSeconds}
+              onChangeTarget={handleChangeWatchGoal}
+              caption="Today's watch goal"
+              editLabel="Change today's watch goal"
+              subjectLabel="goal"
+              completeLabel="Goal reached!"
+              ctaLabel="Set a watch goal"
+            />
+          </div>
+
+          <PageHeader title={activeVideo.title} compact />
 
           <div className="watch-player">
             <div className="watch-player-main" ref={mainRef}>
@@ -557,6 +559,9 @@ const WatchClient = ({
               </div>
 
               <div className="watch-random-row">
+                <Button variant="ghost" onClick={backToBrowse}>
+                  ← All videos
+                </Button>
                 <Button
                   variant="outline"
                   onClick={watchRandomVideo}
@@ -617,7 +622,7 @@ const WatchClient = ({
               </div>
             )}
           </div>
-        </>
+        </FocusMode>
       ) : (
         <>
           <PageHeader
