@@ -24,29 +24,44 @@ const toVideo = (video: ApiVideo): Video => ({
 
 export const PAGE_SIZE = 24;
 
-type VideoPage = { items: Video[]; hasMore: boolean };
+// `error: true` means the request never actually succeeded, as opposed to
+// succeeding with a genuinely empty page -- callers need to tell those two
+// apart so a cold-starting Lambda doesn't get reported to the user as "no
+// videos at this level".
+type VideoPage = { items: Video[]; hasMore: boolean; error?: boolean };
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// A Lambda that's been idle can time out or 5xx on the very first request
+// after a cold start -- a couple of quick retries usually land on a warm
+// instance instead of surfacing that as an empty result.
+const RETRY_DELAYS_MS = [400, 1200];
 
 export const fetchVideos = async (
   language: string,
   options: { level?: DifficultyLevel; sort?: SortMode; seed?: number; offset?: number } = {},
 ): Promise<VideoPage> => {
-  try {
-    const response = await axios.get<{ items: ApiVideo[]; has_more: boolean }>(
-      `${BASE_URL}/${language}/videos`,
-      {
-        params: {
-          level: options.level,
-          sort: options.sort,
-          seed: options.seed,
-          offset: options.offset ?? 0,
-          limit: PAGE_SIZE,
-        },
-      },
-    );
-    return { items: response.data.items.map(toVideo), hasMore: response.data.has_more };
-  } catch (error) {
-    console.error("error fetching videos:", error);
-    return { items: [], hasMore: false };
+  const params = {
+    level: options.level,
+    sort: options.sort,
+    seed: options.seed,
+    offset: options.offset ?? 0,
+    limit: PAGE_SIZE,
+  };
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const response = await axios.get<{ items: ApiVideo[]; has_more: boolean }>(
+        `${BASE_URL}/${language}/videos`,
+        { params },
+      );
+      return { items: response.data.items.map(toVideo), hasMore: response.data.has_more };
+    } catch (error) {
+      if (attempt >= RETRY_DELAYS_MS.length) {
+        console.error("error fetching videos:", error);
+        return { items: [], hasMore: false, error: true };
+      }
+      await sleep(RETRY_DELAYS_MS[attempt]);
+    }
   }
 };
 

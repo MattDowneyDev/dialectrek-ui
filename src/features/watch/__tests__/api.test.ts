@@ -66,9 +66,38 @@ describe("fetchVideos", () => {
     });
   });
 
-  test("returns an empty page instead of throwing on failure", async () => {
-    mockedAxios.get.mockRejectedValueOnce(new Error("network error"));
-    await expect(fetchVideos("es")).resolves.toEqual({ items: [], hasMore: false });
+  test("retries on failure and returns the page if a later attempt succeeds", async () => {
+    vi.useFakeTimers();
+    mockedAxios.get
+      .mockRejectedValueOnce(new Error("network error"))
+      .mockResolvedValueOnce({ data: { items: [apiVideo()], has_more: false } });
+    const resultPromise = fetchVideos("es");
+    await vi.runAllTimersAsync();
+    await expect(resultPromise).resolves.toEqual({
+      items: [
+        {
+          id: "v1",
+          youtubeId: "yt1",
+          title: "Title",
+          channel: "Channel",
+          durationSeconds: 120,
+          difficultyScore: 900,
+          likeCount: 3,
+        },
+      ],
+      hasMore: false,
+    });
+    expect(mockedAxios.get).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
+  });
+
+  test("returns an empty page flagged as an error once every retry fails", async () => {
+    vi.useFakeTimers();
+    mockedAxios.get.mockRejectedValue(new Error("network error"));
+    const resultPromise = fetchVideos("es");
+    await vi.runAllTimersAsync();
+    await expect(resultPromise).resolves.toEqual({ items: [], hasMore: false, error: true });
+    vi.useRealTimers();
   });
 });
 

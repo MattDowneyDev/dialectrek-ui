@@ -51,13 +51,17 @@ const WatchPage = async ({ params, searchParams }: PageProps) => {
     videoId ? fetchVideo(definition.code, videoId) : Promise.resolve(undefined),
   ]);
 
+  // If the server-side fetch above never actually succeeded (e.g. a cold
+  // Lambda timing out), don't bake that in as a legitimate empty page --
+  // leaving initialVideos undefined tells WatchClient it hasn't loaded yet,
+  // so it fetches client-side instead of showing "no videos" forever.
   return (
     <Suspense fallback={null}>
       <WatchClient
         code={definition.code}
         definition={definition}
-        initialVideos={initial.items}
-        initialHasMore={initial.hasMore}
+        initialVideos={initial.error ? undefined : initial.items}
+        initialHasMore={initial.error ? undefined : initial.hasMore}
         initialSeed={seed}
         initialActiveVideo={initialActiveVideo}
       />
