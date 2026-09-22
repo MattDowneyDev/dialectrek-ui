@@ -1755,6 +1755,24 @@ a.language-card:hover {
   color: var(--color-text);
 }
 
+/* Footer bar around LetsGoButton, wrapping every picker screen's confirm
+   button (see LetsGoButton.tsx). Sticky to the bottom of the viewport so it
+   stays visible while a long .selection-grid scrolls past above it -- the
+   negative margin/padding swap bleeds it out to the full width and bottom
+   edge of the enclosing .question-card (undoing that card's own padding)
+   so the bar reads as part of the card rather than floating separately,
+   while still rounding its bottom corners to match the card underneath it. */
+.selection-confirm {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin: 0 -32px -40px;
+  padding: 16px 32px 24px;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
 .timer-dropdown-backdrop {
   position: fixed;
   inset: 0;
@@ -2134,6 +2152,93 @@ a.language-card:hover {
   padding-right: 44px;
 }
 
+/* Mobile/tablet's multiple-choice layout -- swapped in for .quiz-input-wrap
+   below the compact breakpoint so a virtual keyboard never has to open. Two
+   columns keep each option's tap target wide instead of stacking four thin
+   rows. */
+.quiz-choices {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.quiz-choice {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 34px;
+  font-size: 1.05rem;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.quiz-choice:not(:disabled):hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.quiz-choice:disabled {
+  cursor: not-allowed;
+}
+
+.quiz-choice.correct {
+  border-color: var(--color-success);
+  background: var(--color-success-light);
+  box-shadow: 0 0 0 3px var(--color-success-light);
+  color: var(--color-success);
+}
+
+.quiz-choice.incorrect {
+  border-color: var(--color-danger);
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+  animation: quiz-input-shake 0.4s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quiz-choice.incorrect {
+    animation: none;
+  }
+}
+
+.quiz-choice-icon {
+  position: absolute;
+  right: 10px;
+  display: flex;
+  align-items: center;
+}
+
+/* Placeholder rows while a question's choices are still loading -- same
+   footprint as the real buttons so the card doesn't resize once they land. */
+.quiz-choice--skeleton {
+  border-style: dashed;
+  background: var(--color-surface-alt);
+  animation: quiz-choice-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes quiz-choice-pulse {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quiz-choice--skeleton {
+    animation: none;
+  }
+}
+
 /* Visually hidden but still announced by screen readers -- carries the
    same "Correct!"/"Incorrect" signal the quiz-input-icon gives sighted
    users, since that icon is aria-hidden and decorative only. */
@@ -2428,6 +2533,15 @@ a.language-card:hover {
     padding: 6px 14px;
   }
 
+  .conjugate-focus-card .quiz-choices {
+    gap: 6px;
+  }
+
+  .conjugate-focus-card .quiz-choice {
+    padding: 8px 30px;
+    font-size: 0.9rem;
+  }
+
   .conjugate-focus-card .accent-toolbar {
     margin-top: 4px;
   }
@@ -2445,6 +2559,39 @@ a.language-card:hover {
   .conjugate-focus-card .hint-text {
     margin-top: 3px;
     font-size: 0.8rem;
+  }
+}
+
+/* Narrow portrait phones have plenty of vertical room but not enough
+   horizontal room -- the opposite problem from the landscape-short case
+   above, so the fix is the opposite too: instead of dropping the caption to
+   save height, stack it above the elapsed/target value and let the track
+   grow a little taller. Side by side, the two would need more width than a
+   phone-portrait track has once .focus-mode's and .focus-mode-meter's own
+   padding are subtracted, especially once the value grows to something like
+   "Goal reached! 12:34". Scoped to .focus-mode-meter (Conjugate/Flashcards'
+   fixed practice screen) rather than bare .goal-bar-* -- Watch's goal bar
+   sits in a plain scrollable page with different padding and isn't as
+   cramped. */
+@media (max-width: 600px) and (orientation: portrait) {
+  .focus-mode-meter .goal-bar-track {
+    height: 46px;
+  }
+
+  .focus-mode-meter .goal-bar-label {
+    flex-direction: column;
+    justify-content: center;
+    gap: 1px;
+    padding: 4px 14px;
+  }
+
+  .focus-mode-meter .goal-bar-caption {
+    font-size: 0.6rem;
+  }
+
+  .focus-mode-meter .goal-bar-value {
+    font-size: 0.8rem;
+    white-space: nowrap;
   }
 }
 

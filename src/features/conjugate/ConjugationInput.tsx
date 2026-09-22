@@ -5,6 +5,8 @@ import Button from "../../components/Button";
 import QuestionCard from "../../components/QuestionCard";
 import { CheckIcon, XIcon } from "../../components/icons";
 import type { Tense, VerbConjugation } from "../../languages/types";
+import ConjugationPrompt from "./ConjugationPrompt";
+import ConjugationHintArea from "./ConjugationHintArea";
 
 type ConjugationInputProps = {
   randomVerb: VerbConjugation | null;
@@ -70,40 +72,7 @@ const ConjugationInput = ({
 
   return (
     <QuestionCard animationKey={questionKey}>
-      {(randomVerb?.tense || randomVerb?.mood) && (
-        <div className="quiz-badges">
-          {randomVerb?.tense && (
-            <div className={`quiz-mood ${randomVerb.tense}`}>
-              {tenseLabels[randomVerb.tense]}
-            </div>
-          )}
-          {randomVerb?.tense === "imperative" && randomVerb?.polarity ? (
-            <div className={`quiz-mood ${randomVerb.polarity}`}>
-              {randomVerb.polarity === "negative"
-                ? "Negative"
-                : "Affirmative"}
-            </div>
-          ) : (
-            randomVerb?.mood && (
-              <div className={`quiz-mood ${randomVerb.mood}`}>
-                {randomVerb.mood === "subjunctive"
-                  ? "Subjunctive"
-                  : "Indicative"}
-              </div>
-            )
-          )}
-        </div>
-      )}
-      <div className="quiz-sentence">
-        {randomVerb?.mood === "subjunctive" &&
-          randomVerb?.tense !== "imperative" && (
-            <span className="quiz-subjunctive-marker">(that)</span>
-          )}
-        {randomVerb?.pronoun_english && (
-          <span className="quiz-pronoun">{randomVerb.pronoun_english}</span>
-        )}
-        <span className="quiz-word">{randomVerb?.form_english ?? "..."}</span>
-      </div>
+      <ConjugationPrompt randomVerb={randomVerb} tenseLabels={tenseLabels} />
 
       <form onSubmit={handleSubmitGuess}>
         <div className="quiz-input-wrap">
@@ -179,34 +148,7 @@ const ConjugationInput = ({
         </div>
       </form>
 
-      {/* Both lines are always mounted (visibility toggled, one overlaid on
-          the other via CSS grid -- see .hint-area) rather than conditionally
-          rendered, so the card reserves each one's real height from the
-          start instead of a guessed value. Only ever one visible at a time:
-          the answer already implies the hint, so there's no need to keep
-          the hint line around once the answer is up. */}
-      <div className="hint-area">
-        <div className={`hint-text${showAnswer ? "" : " hint-text--hidden"}`}>
-          {randomVerb?.form_target && (
-            <>
-              Answer: <strong>{randomVerb.form_target}</strong>
-              {randomVerb.form_target_alt && (
-                <>
-                  {" "}
-                  (or <strong>{randomVerb.form_target_alt}</strong>)
-                </>
-              )}
-            </>
-          )}
-        </div>
-        <div className={`hint-text${showHint && !showAnswer ? "" : " hint-text--hidden"}`}>
-          {randomVerb?.infinitive_target && (
-            <>
-              Hint: the infinitive is <strong>{randomVerb.infinitive_target}</strong>
-            </>
-          )}
-        </div>
-      </div>
+      <ConjugationHintArea randomVerb={randomVerb} showHint={showHint} showAnswer={showAnswer} />
     </QuestionCard>
   );
 };

@@ -95,6 +95,11 @@ const WatchClient = ({
   const [isLoading, setIsLoading] = useState(!hasInitialData);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(initialHasMore ?? false);
+  // Set only once fetchVideos has given up retrying entirely (see
+  // loadVideosRef below) -- distinct from a genuinely empty page, so the
+  // grid can tell the user "couldn't load" instead of the misleading "no
+  // videos at this level".
+  const [loadError, setLoadError] = useState(false);
   const [isMutating, setIsMutating] = useState(false);
   // One random seed per browsing session (new filters, new sort, fresh
   // page load), reused across every "load more" page so sort=random stays
@@ -219,6 +224,44 @@ const WatchClient = ({
   const loadedParamsKey = `${code}|${filterLevel}|${sortMode}`;
   const loadedParamsRef = useRef(hasInitialData ? loadedParamsKey : null);
 
+  // The retry chain below schedules setTimeout calls outside of any
+  // effect's own cleanup, so it needs its own signal for "the component is
+  // gone, stop touching state" rather than relying on an effect teardown.
+  const unmountedRef = useRef(false);
+  useEffect(() => () => {
+    unmountedRef.current = true;
+  }, []);
+
+  // Kept in a ref (same reasoning as loadMoreRef below) so both the effect
+  // below and the manual "Retry" button can trigger a load without either
+  // depending on the other. fetchVideos already retries a couple of times
+  // internally for a cold Lambda; if it still comes back as an error that's
+  // more likely a real outage than an ordinary empty page, so this retries
+  // a couple more times with longer gaps (a Lambda can take several
+  // seconds to finish spinning up) before finally surfacing loadError.
+  const loadVideosRef = useRef<(attemptsLeft: number) => void>(() => {});
+  loadVideosRef.current = (attemptsLeft: number) => {
+    const requestKey = loadedParamsKey;
+    fetchVideos(code, {
+      level: filterLevel === "all" ? undefined : filterLevel,
+      sort: sortMode,
+      seed: seedRef.current,
+    }).then((result) => {
+      // Filters may have changed again while this (or a retry of it) was
+      // in flight -- bail rather than clobbering newer state with a stale
+      // response. Also bail if the component itself is gone.
+      if (unmountedRef.current || loadedParamsRef.current !== requestKey) return;
+      if (result.error && attemptsLeft > 0) {
+        setTimeout(() => loadVideosRef.current(attemptsLeft - 1), 3000);
+        return;
+      }
+      setVideos(result.items);
+      setHasMore(result.hasMore);
+      setIsLoading(false);
+      setLoadError(Boolean(result.error));
+    });
+  };
+
   // Filtering and sorting happen server-side now (see watch.py). A new
   // seed here means a fresh shuffle for sort=random each time the filters
   // actually change, while "load more" below keeps reusing this same seed.
@@ -226,24 +269,18 @@ const WatchClient = ({
     if (loadedParamsRef.current === loadedParamsKey) return;
     loadedParamsRef.current = loadedParamsKey;
 
-    let cancelled = false;
     seedRef.current = Math.floor(Math.random() * 1_000_000_000);
     setIsLoading(true);
+    setLoadError(false);
     setVideos([]);
-    fetchVideos(code, {
-      level: filterLevel === "all" ? undefined : filterLevel,
-      sort: sortMode,
-      seed: seedRef.current,
-    }).then((result) => {
-      if (cancelled) return;
-      setVideos(result.items);
-      setHasMore(result.hasMore);
-      setIsLoading(false);
-    });
-    return () => {
-      cancelled = true;
-    };
+    loadVideosRef.current(2);
   }, [code, filterLevel, sortMode]);
+
+  const handleRetryLoad = () => {
+    setIsLoading(true);
+    setLoadError(false);
+    loadVideosRef.current(2);
+  };
 
   // Kept in a ref (rather than depended on directly) so the
   // IntersectionObserver effect below can set itself up once per browse
@@ -696,6 +733,11 @@ const WatchClient = ({
 
           {isLoading ? (
             <EmptyState>Loading videos...</EmptyState>
+          ) : loadError ? (
+            <EmptyState>
+              <p>Couldn&apos;t load videos. Check your connection and try again.</p>
+              <Button onClick={handleRetryLoad}>Retry</Button>
+            </EmptyState>
           ) : visibleVideos.length === 0 ? (
             <EmptyState>
               No videos at this level yet. Try a different filter.
