@@ -1,13 +1,15 @@
 "use client";
 
-import Button from "../../components/Button";
+import LetsGoButton from "../../components/LetsGoButton";
 import QuestionCard from "../../components/QuestionCard";
-import type { Tense } from "../../languages/types";
+import SelectionCard, { SelectionGrid } from "../../components/SelectionCard";
+import type { Tense, TenseExample } from "../../languages/types";
 
 type TenseSelectionProps = {
   tenseList: Tense[];
   tenseSelection: Tense[];
   tenseLabels: Record<Tense, string>;
+  tenseExamples: Record<Tense, TenseExample>;
   onToggleTense: (tense: Tense) => void;
   onToggleAllTenses: () => void;
   onConfirm: () => void;
@@ -17,6 +19,7 @@ const TenseSelection = ({
   tenseList,
   tenseSelection,
   tenseLabels,
+  tenseExamples,
   onToggleTense,
   onToggleAllTenses,
   onConfirm,
@@ -25,26 +28,30 @@ const TenseSelection = ({
 
   return (
     <QuestionCard title="Which tenses would you like to practice?">
-      <div className="select-all-row">
-        <Button variant="ghost" className="btn-sm" onClick={onToggleAllTenses}>
-          {allSelected ? "Deselect all" : "Select all"}
-        </Button>
-      </div>
-      <div className="chip-grid">
+      <SelectionGrid>
+        <SelectionCard
+          title="All tenses"
+          highlighted
+          selected={allSelected}
+          onClick={onToggleAllTenses}
+        />
         {tenseList.map((tense) => (
-          <button
+          <SelectionCard
             key={tense}
-            type="button"
-            className={`chip${tenseSelection.includes(tense) ? " selected" : ""}`}
+            title={tenseLabels[tense]}
+            description={
+              <>
+                <span className="tense-example-target">{tenseExamples[tense].target}</span>
+                <br />
+                {tenseExamples[tense].english}
+              </>
+            }
+            selected={tenseSelection.includes(tense)}
             onClick={() => onToggleTense(tense)}
-          >
-            {tenseLabels[tense]}
-          </button>
+          />
         ))}
-      </div>
-      <Button disabled={tenseSelection.length === 0} onClick={onConfirm}>
-        Let's conjugate!
-      </Button>
+      </SelectionGrid>
+      <LetsGoButton disabled={tenseSelection.length === 0} onClick={onConfirm} />
     </QuestionCard>
   );
 };

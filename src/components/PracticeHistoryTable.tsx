@@ -7,7 +7,7 @@ export type PracticeHistoryRow = {
 };
 
 type PracticeHistoryTableProps = {
-  title: string;
+  title?: string;
   headers: string[];
   rows: PracticeHistoryRow[];
 };
@@ -23,7 +23,7 @@ const PracticeHistoryTable = ({ title, headers, rows }: PracticeHistoryTableProp
 
   return (
     <div className="history-table-wrap">
-      <h2 className="history-table-title">{title}</h2>
+      {title && <h2 className="history-table-title">{title}</h2>}
       <div className="history-table-scroll">
         <table className="history-table">
           <thead>

@@ -1,4 +1,4 @@
-import type { Tense } from "../types";
+import type { Tense, TenseExample } from "../types";
 import type { LanguageDefinition } from "../registry";
 import { frGrammarTopics, frUpcomingGrammarTopics } from "./grammar";
 
@@ -32,6 +32,24 @@ export const fr: LanguageDefinition = {
     pluperfect: "Pluperfect",
     imperative: "Imperative",
   } satisfies Record<Tense, string>,
+  // "parler" (regular -er verb) in first person singular ("je"), except
+  // the imperative -- which has no "je" form -- shown as the informal
+  // "tu" command instead. preterite/preterite_perfect (the literary
+  // passé simple/passé antérieur) aren't offered in availableTenses, but
+  // still get an example here since tenseLabels covers every Tense too.
+  tenseExamples: {
+    present: { target: "Je parle", english: "I speak" },
+    preterite: { target: "Je parlai", english: "I spoke" },
+    imperfect: { target: "Je parlais", english: "I was speaking" },
+    perfect: { target: "J'ai parlé", english: "I have spoken" },
+    future: { target: "Je parlerai", english: "I will speak" },
+    future_perfect: { target: "J'aurai parlé", english: "I will have spoken" },
+    conditional: { target: "Je parlerais", english: "I would speak" },
+    conditional_perfect: { target: "J'aurais parlé", english: "I would have spoken" },
+    preterite_perfect: { target: "J'eus parlé", english: "I had spoken" },
+    pluperfect: { target: "J'avais parlé", english: "I had spoken" },
+    imperative: { target: "Parle !", english: "Speak!" },
+  } satisfies Record<Tense, TenseExample>,
   availableTenses: [
     "present", "imperfect", "perfect", "pluperfect", "future", "future_perfect",
     "conditional", "conditional_perfect", "imperative",

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import PageHeader from "../../components/PageHeader";
+import Button from "../../components/Button";
+import FocusMode, { useFocusMode } from "../../components/FocusMode";
 import GoalBar from "../../components/GoalBar";
 import PracticeHistoryTable, {
   type PracticeHistoryRow,
@@ -85,8 +87,12 @@ const ConjugateClient = ({ code, definition, initialTenses }: ConjugateClientPro
   // animationKey.
   const [questionIndex, setQuestionIndex] = useState<number>(0);
   // Newest-first log of every verb answered this session, shown as a table
-  // below the practice card instead of a single running score tile.
+  // on the summary screen once the session is stopped.
   const [history, setHistory] = useState<PracticeHistoryRow[]>([]);
+  // Flips practice mode over to the summary screen -- set by the "Stop"
+  // button, cleared again once a fresh session starts from the setup
+  // wizard.
+  const [isSessionSummary, setIsSessionSummary] = useState(false);
   // Counts up toward goalSeconds across the whole day (every practice visit
   // today, not just this one) -- only ticks while actively conjugating
   // (setup wizard finished), same idea as Watch only ticking while a video
@@ -98,7 +104,12 @@ const ConjugateClient = ({ code, definition, initialTenses }: ConjugateClientPro
   // read from localStorage once mounted.
   const [goalSeconds, setGoalSeconds] = useState<number>(DEFAULT_CONJUGATE_GOAL_SECONDS);
 
-  const isActiveConjugation = stepIndex === steps.length;
+  const isActiveConjugation = stepIndex === steps.length && !isSessionSummary;
+  const isSummaryStep = stepIndex === steps.length && isSessionSummary;
+
+  // Practice mode takes over the whole screen like a modal -- see
+  // useFocusMode (shared with Flashcards' practice screen).
+  useFocusMode(isActiveConjugation);
 
   // Picks up today's progress and the standing goal from a previous visit --
   // without this, both would start over at 0/default on every reload even
@@ -169,6 +180,26 @@ const ConjugateClient = ({ code, definition, initialTenses }: ConjugateClientPro
 
   const handleTenseConfirm = () => {
     fetchRandomVerbConjugation();
+  };
+
+  const handleStop = () => setIsSessionSummary(true);
+
+  // Resets every setup choice back to its pre-wizard state, same as a
+  // fresh mount without initialTenses -- "practice again" always walks the
+  // full wizard again, even if this session originally skipped it.
+  const handlePracticeAgain = () => {
+    setStepIndex(0);
+    setIsSessionSummary(false);
+    setHistory([]);
+    setUseIrregularVerbs(undefined);
+    setToggleAnswers({});
+    setMoodSelection(undefined);
+    setTenseSelection([]);
+    setRandomVerb(null);
+    setIsCorrectAnswer("");
+    setUserGuess("");
+    setShowHint(false);
+    setShowAnswer(false);
   };
 
   // GoalBar's onChangeTarget always passes a real number here -- allowNoLimit
@@ -285,102 +316,134 @@ const ConjugateClient = ({ code, definition, initialTenses }: ConjugateClientPro
 
   const isSetupStep = stepIndex < steps.length;
   const currentStep = isSetupStep ? steps[stepIndex] : null;
+  const correctCount = history.filter((row) => row.correct).length;
 
   return (
     <div className="page">
-      <div className="goal-bar-wrap">
-        <GoalBar
-          elapsedSeconds={elapsedSeconds}
-          targetSeconds={goalSeconds}
-          onChangeTarget={handleChangeGoal}
-          caption="Today's conjugate goal"
-          editLabel="Change today's conjugate goal"
-          subjectLabel="goal"
-          completeLabel="Goal reached!"
-          ctaLabel="Set a conjugate goal"
-        />
-      </div>
+      {isSetupStep && (
+        <>
+          <PageHeader
+            title="Conjugate"
+            subtitle={`Practice conjugating the ${definition.verbCount} most common ${definition.displayName} verbs.`}
+          />
 
-      <PageHeader
-        title="Conjugate"
-        subtitle="Answer a few quick questions, then start conjugating."
-      />
+          <div
+            className={`practice-card${currentStep?.kind === "tenses" ? " practice-card--tenses" : ""}`}
+          >
+            <div className="step-progress">
+              {steps.map((_, index) => (
+                <span
+                  key={index}
+                  className={`step-dot${
+                    index === stepIndex
+                      ? " active"
+                      : index < stepIndex
+                        ? " done"
+                        : ""
+                  }`}
+                />
+              ))}
+            </div>
 
-      <div
-        className={`practice-card${currentStep?.kind === "tenses" ? " practice-card--tenses" : ""}`}
-      >
-        {isSetupStep && (
-          <div className="step-progress">
-            {steps.map((_, index) => (
-              <span
-                key={index}
-                className={`step-dot${
-                  index === stepIndex
-                    ? " active"
-                    : index < stepIndex
-                      ? " done"
-                      : ""
-                }`}
+            {currentStep?.kind === "irregular" && (
+              <VerbTypeSelection
+                prompt="Do you want irregular verbs?"
+                onYes={() => handleIrregularityQuestion(true)}
+                onNo={() => handleIrregularityQuestion(false)}
               />
-            ))}
+            )}
+
+            {currentStep?.kind === "toggle" && (
+              <VerbTypeSelection
+                prompt={currentStep.prompt}
+                onYes={() => handleToggleAnswer(currentStep.key, true)}
+                onNo={() => handleToggleAnswer(currentStep.key, false)}
+              />
+            )}
+
+            {currentStep?.kind === "subjunctive" && (
+              <MoodSelection onSelect={handleMoodSelection} />
+            )}
+
+            {currentStep?.kind === "tenses" && (
+              <TenseSelection
+                tenseList={tenseList}
+                tenseLabels={definition.tenseLabels}
+                tenseExamples={definition.tenseExamples}
+                tenseSelection={tenseSelection}
+                onToggleTense={handleToggleTense}
+                onToggleAllTenses={handleToggleAllTenses}
+                onConfirm={handleTenseConfirm}
+              />
+            )}
           </div>
-        )}
+        </>
+      )}
 
-        {currentStep?.kind === "irregular" && (
-          <VerbTypeSelection
-            prompt="Do you want irregular verbs?"
-            onYes={() => handleIrregularityQuestion(true)}
-            onNo={() => handleIrregularityQuestion(false)}
+      {isActiveConjugation && (
+        <FocusMode>
+          <div className="focus-mode-meter">
+            <GoalBar
+              elapsedSeconds={elapsedSeconds}
+              targetSeconds={goalSeconds}
+              onChangeTarget={handleChangeGoal}
+              caption="Today's conjugate goal"
+              editLabel="Change today's conjugate goal"
+              subjectLabel="goal"
+              completeLabel="Goal reached!"
+              ctaLabel="Set a conjugate goal"
+            />
+          </div>
+
+          <div className="focus-mode-body focus-mode-body--stacked">
+            <div className="focus-mode-stage">
+              <div className="conjugate-focus-card">
+                <ConjugationInput
+                  randomVerb={randomVerb}
+                  tenseLabels={definition.tenseLabels}
+                  accentChars={definition.accentChars}
+                  handleInputChange={handleInputChange}
+                  handleSubmitGuess={handleSubmitGuess}
+                  isCorrectAnswer={isCorrectAnswer}
+                  fetchRandomVerbConjugation={fetchRandomVerbConjugation}
+                  userGuess={userGuess}
+                  showHint={showHint}
+                  onShowHint={() => setShowHint(true)}
+                  showAnswer={showAnswer}
+                  onShowAnswer={handleShowAnswer}
+                  questionKey={questionIndex}
+                />
+              </div>
+            </div>
+
+            <Button variant="ghost" onClick={handleStop}>
+              Stop practice
+            </Button>
+          </div>
+        </FocusMode>
+      )}
+
+      {isSummaryStep && (
+        <>
+          <PageHeader
+            title="Session summary"
+            subtitle={
+              history.length > 0
+                ? `You got ${correctCount} right out of ${history.length} (${Math.round(
+                    (correctCount / history.length) * 100,
+                  )}%).`
+                : "You stopped before answering any verbs this session."
+            }
           />
-        )}
-
-        {currentStep?.kind === "toggle" && (
-          <VerbTypeSelection
-            prompt={currentStep.prompt}
-            onYes={() => handleToggleAnswer(currentStep.key, true)}
-            onNo={() => handleToggleAnswer(currentStep.key, false)}
+          <PracticeHistoryTable
+            headers={["Verb", "Pronoun", "Tense", "Answer"]}
+            rows={history}
           />
-        )}
-
-        {currentStep?.kind === "subjunctive" && (
-          <MoodSelection onSelect={handleMoodSelection} />
-        )}
-
-        {currentStep?.kind === "tenses" && (
-          <TenseSelection
-            tenseList={tenseList}
-            tenseLabels={definition.tenseLabels}
-            tenseSelection={tenseSelection}
-            onToggleTense={handleToggleTense}
-            onToggleAllTenses={handleToggleAllTenses}
-            onConfirm={handleTenseConfirm}
-          />
-        )}
-
-        {isActiveConjugation && (
-          <ConjugationInput
-            randomVerb={randomVerb}
-            tenseLabels={definition.tenseLabels}
-            accentChars={definition.accentChars}
-            handleInputChange={handleInputChange}
-            handleSubmitGuess={handleSubmitGuess}
-            isCorrectAnswer={isCorrectAnswer}
-            fetchRandomVerbConjugation={fetchRandomVerbConjugation}
-            userGuess={userGuess}
-            showHint={showHint}
-            onShowHint={() => setShowHint(true)}
-            showAnswer={showAnswer}
-            onShowAnswer={handleShowAnswer}
-            questionKey={questionIndex}
-          />
-        )}
-      </div>
-
-      <PracticeHistoryTable
-        title="Verbs practiced"
-        headers={["Verb", "Pronoun", "Tense", "Answer"]}
-        rows={history}
-      />
+          <div className="summary-actions">
+            <Button onClick={handlePracticeAgain}>Practice again</Button>
+          </div>
+        </>
+      )}
     </div>
   );
 };
