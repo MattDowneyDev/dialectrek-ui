@@ -2748,6 +2748,23 @@ a.language-card:hover {
   animation-delay: 0.4s;
 }
 
+/* Touch devices (phone/tablet) get "Tap", everything else (mouse/trackpad)
+   gets "Click" -- keyed off pointer type rather than screen width so a
+   touch-only tablet in landscape still says "Tap". */
+.flip-hint-text--touch {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .flip-hint-text--pointer {
+    display: none;
+  }
+
+  .flip-hint-text--touch {
+    display: inline;
+  }
+}
+
 .flip-hint-arrow {
   animation: flip-hint-bounce 1.2s ease-in-out infinite;
   animation-delay: 0.4s;

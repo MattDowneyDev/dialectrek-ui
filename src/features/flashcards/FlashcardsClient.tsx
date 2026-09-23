@@ -30,6 +30,7 @@ type Direction = "target-to-english" | "english-to-target";
 
 const FlashcardsClient = ({ code, definition }: FlashcardsClientProps) => {
   const [categories, setCategories] = useState<string[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const [categorySelection, setCategorySelection] = useState<string[]>([]);
   // Flips the setup screen over to practice mode -- set by "Let's go!",
   // cleared again once a fresh session starts from the category screen.
@@ -37,6 +38,10 @@ const FlashcardsClient = ({ code, definition }: FlashcardsClientProps) => {
   const [word, setWord] = useState<RandomWord | null>(null);
   const [direction, setDirection] = useState<Direction>("target-to-english");
   const [isFlipped, setIsFlipped] = useState(false);
+  // Tracks whether the current card has been flipped at least once, so the
+  // knew-it/didn't-know-it buttons stay put once revealed instead of
+  // vanishing if the user flips the card back to the front.
+  const [hasFlipped, setHasFlipped] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showFlipHint, setShowFlipHint] = useState(true);
   // Newest-first log of every word answered this session, shown as a table
@@ -68,6 +73,7 @@ const FlashcardsClient = ({ code, definition }: FlashcardsClientProps) => {
   const loadNextWord = async () => {
     setIsLoading(true);
     setIsFlipped(false);
+    setHasFlipped(false);
     const nextWord = await fetchRandomWord(code, resolveCategory());
     setWord(nextWord ?? null);
     setIsLoading(false);
@@ -76,11 +82,13 @@ const FlashcardsClient = ({ code, definition }: FlashcardsClientProps) => {
   const toggleFlipped = () => {
     setShowFlipHint(false);
     setIsFlipped((flipped) => !flipped);
+    setHasFlipped(true);
   };
 
   const handleSetDirection = (next: Direction) => {
     setDirection(next);
     setIsFlipped(false);
+    setHasFlipped(false);
   };
 
   const recordHistory = (correct: boolean) => {
@@ -107,12 +115,16 @@ const FlashcardsClient = ({ code, definition }: FlashcardsClientProps) => {
 
   const handleToggleCategory = (category: string) => {
     setCategorySelection((prev) =>
-      prev.includes(category) ? prev.filter((selected) => selected !== category) : [...prev, category],
+      prev.includes(category)
+        ? prev.filter((selected) => selected !== category)
+        : [...prev, category],
     );
   };
 
   const handleToggleAllCategories = () => {
-    setCategorySelection((prev) => (prev.length === categories.length ? [] : categories));
+    setCategorySelection((prev) =>
+      prev.length === categories.length ? [] : categories,
+    );
   };
 
   const handleConfirmCategories = () => {
@@ -152,10 +164,14 @@ const FlashcardsClient = ({ code, definition }: FlashcardsClientProps) => {
     setCategories([]);
     setCategorySelection([]);
     setIsConfirmed(false);
+    setIsLoadingCategories(true);
 
     (async () => {
       const list = await fetchWordCategories(code);
-      if (!cancelled) setCategories(list);
+      if (!cancelled) {
+        setCategories(list);
+        setIsLoadingCategories(false);
+      }
     })();
 
     return () => {
@@ -238,6 +254,12 @@ const FlashcardsClient = ({ code, definition }: FlashcardsClientProps) => {
                 onConfirm={handleConfirmCategories}
               />
             )}
+            {categories.length === 0 && !isLoadingCategories && (
+              <EmptyState>
+                Couldn&apos;t load flashcard categories right now. Try again in
+                a moment.
+              </EmptyState>
+            )}
           </div>
         </>
       )}
@@ -263,7 +285,14 @@ const FlashcardsClient = ({ code, definition }: FlashcardsClientProps) => {
                 <div className="flashcard-wrap">
                   {showFlipHint && (
                     <div className="flip-hint" aria-hidden="true">
-                      <span className="flip-hint-bubble">Click to flip!</span>
+                      <span className="flip-hint-bubble">
+                        <span className="flip-hint-text flip-hint-text--pointer">
+                          Click to flip!
+                        </span>
+                        <span className="flip-hint-text flip-hint-text--touch">
+                          Tap to flip!
+                        </span>
+                      </span>
                       <svg
                         className="flip-hint-arrow"
                         width="40"
@@ -374,18 +403,18 @@ const FlashcardsClient = ({ code, definition }: FlashcardsClientProps) => {
                     the card is flipped or not -- otherwise everything below
                     it jumps up and down every time a card flips. */}
                 <div
-                  className={`flashcards-controls${isFlipped ? "" : " flashcards-controls--hidden"}`}
+                  className={`flashcards-controls${hasFlipped ? "" : " flashcards-controls--hidden"}`}
                 >
                   <Button
                     onClick={handleKnewIt}
-                    disabled={isLoading || !isFlipped}
+                    disabled={isLoading || !hasFlipped}
                   >
                     I knew it
                   </Button>
                   <Button
                     variant="outline"
                     onClick={handleDidntKnowIt}
-                    disabled={isLoading || !isFlipped}
+                    disabled={isLoading || !hasFlipped}
                   >
                     I didn&apos;t know it
                   </Button>
@@ -417,7 +446,9 @@ const FlashcardsClient = ({ code, definition }: FlashcardsClientProps) => {
             rows={history}
           />
           <div className="summary-actions">
-            <Button onClick={handleChooseAnotherCategory}>Practice again</Button>
+            <Button onClick={handleChooseAnotherCategory}>
+              Practice again
+            </Button>
           </div>
         </>
       )}
