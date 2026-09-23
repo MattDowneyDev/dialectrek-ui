@@ -308,7 +308,7 @@ describe("session summary", () => {
     await flush();
     await user.click(screen.getByRole("button", { name: "Stop practice" }));
 
-    await user.click(screen.getByRole("button", { name: "Choose different categories" }));
+    await user.click(screen.getByRole("button", { name: "Practice again" }));
 
     const allWords = screen.getByRole("button", { name: "All words" });
     expect(allWords).toBeInTheDocument();
