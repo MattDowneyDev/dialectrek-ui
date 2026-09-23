@@ -417,9 +417,7 @@ const FlashcardsClient = ({ code, definition }: FlashcardsClientProps) => {
             rows={history}
           />
           <div className="summary-actions">
-            <Button onClick={handleChooseAnotherCategory}>
-              Choose different categories
-            </Button>
+            <Button onClick={handleChooseAnotherCategory}>Practice again</Button>
           </div>
         </>
       )}
