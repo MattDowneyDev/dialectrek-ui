@@ -61,16 +61,16 @@ const LanguagePickerPage = () => {
             description="Learn from real native speakers on YouTube, sorted to match your level."
           />
           <FeatureItem
-            title="Look up verbs"
-            description="Browse the verb list and find a conjugation fast."
+            title="Study flashcards"
+            description="Flip through the most common words until they stick."
           />
           <FeatureItem
             title="Conjugate verbs"
             description="Quiz yourself on the tenses and verb types you choose."
           />
           <FeatureItem
-            title="Study flashcards"
-            description="Flip through the most common words until they stick."
+            title="Look up verbs"
+            description="Browse the verb list and find a conjugation fast."
           />
           <FeatureItem
             title="Learn grammar"
