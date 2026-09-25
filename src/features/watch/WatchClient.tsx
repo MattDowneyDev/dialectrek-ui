@@ -11,8 +11,8 @@ import type { LanguageDefinition } from "../../languages/registry";
 import { compareVideos, dislikeVideo, fetchRelatedVideos, fetchVideos, likeVideo } from "./api";
 import CompareThumb from "./CompareThumb";
 import DifficultyBadge from "./DifficultyBadge";
+import { ChevronDownIcon } from "../../components/icons";
 import {
-  ChevronDownIcon,
   PlayIcon,
   ThumbsDownIcon,
   ThumbsUpIcon,
@@ -39,7 +39,6 @@ import {
 } from "./types";
 import VideoCard from "./VideoCard";
 import WatchHelpButton from "./WatchHelpButton";
-import WatchIntroModal from "./WatchIntroModal";
 import YouTubePlayer from "./YouTubePlayer";
 
 // YouTube's IFrame API reports player state as YT.PlayerState.PLAYING, but
@@ -534,8 +533,6 @@ const WatchClient = ({
 
   return (
     <div className="page">
-      <WatchIntroModal />
-
       {activeVideo ? (
         <FocusMode scrollable>
           <div className="goal-bar-wrap">

@@ -10,10 +10,9 @@ type WatchHelpModalProps = {
   onClose: () => void;
 };
 
-// Generic dialog chrome (portal, overlay, close button, a11y wiring) shared
-// by two *different* popups: the daily auto-reminder (WatchIntroModal) and
-// the on-demand "how rankings work" explainer (WatchHelpButton). Only the
-// chrome is shared -- each caller supplies its own title/copy.
+// Generic dialog chrome (portal, overlay, close button, a11y wiring) for
+// the "How Watch works" explainer (WatchHelpButton) -- callers supply the
+// title/copy.
 //
 // Portalled to the body rather than rendered inline -- the page-load
 // animation on .page leaves it with a (no-op) transform, which makes it a

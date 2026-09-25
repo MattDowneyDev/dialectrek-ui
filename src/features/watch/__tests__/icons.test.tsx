@@ -1,6 +1,7 @@
 import { test, expect } from "vitest";
 import { render } from "@testing-library/react";
-import { ChevronDownIcon, InfoIcon, PlayIcon, ThumbsDownIcon, ThumbsUpIcon } from "../icons";
+import { ChevronDownIcon } from "../../../components/icons";
+import { InfoIcon, PlayIcon, ThumbsDownIcon, ThumbsUpIcon } from "../icons";
 
 test("PlayIcon renders an svg", () => {
   const { container } = render(<PlayIcon />);
