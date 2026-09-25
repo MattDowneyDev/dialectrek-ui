@@ -1,13 +1,64 @@
 "use client";
 
 import { useState } from "react";
+import Accordion, { type AccordionItem } from "../../components/Accordion";
 import { InfoIcon } from "./icons";
-import RankingSeesawGraphic from "./RankingSeesawGraphic";
 import WatchHelpModal from "./WatchHelpModal";
 
-// A standalone, on-demand explainer of the ranking mechanism -- distinct
-// from (and independent of) WatchIntroModal's daily reminder. Opening or
-// closing this has no effect on that popup's own daily-seen state.
+const HELP_SECTIONS: AccordionItem[] = [
+  {
+    id: "how-to-use",
+    title: "How to use",
+    content: (
+      <>
+        <p>1. Choose a difficulty level appropriate for you.</p>
+        <p>
+          2. Choose any video to watch and it will open in the Watch screen.
+        </p>
+        <p>3. Be sure to rank and like/dislike videos that you watch.</p>
+        <p>
+          4. Use the "Watch random video" button to get another video in the
+          difficulty range that you've chosen.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "ranking",
+    title: "Ranking",
+    content: (
+      <>
+        <p>
+          New videos are imported with a "best guess" difficulty score. Usually
+          these best guesses are accurate. Sometime they're not.
+        </p>
+        <p>
+          User ranking helps makes this as accurate as possible. With enough
+          rankings, videos end up exactly where they should be.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "liking",
+    title: "Liking and disliking",
+    content: (
+      <>
+        <p>
+          Videos are imported by YouTube channel, not individually. Sometimes
+          some duds slip through.
+        </p>
+        <p>
+          Likes tell other users which videos are worth watching. Dislikes tell
+          us which videos should be deleted.
+        </p>
+      </>
+    ),
+  },
+];
+
+// On-demand explainer of how Watch works -- a quick how-to, then ranking
+// and liking, one accordion section each.
 const WatchHelpButton = () => {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -19,30 +70,14 @@ const WatchHelpButton = () => {
         onClick={() => setIsOpen(true)}
       >
         <InfoIcon />
-        How rankings work
+        How Watch works
       </button>
       {isOpen && (
         <WatchHelpModal
-          title="How Rankings Work"
+          title="How Watch Works"
           onClose={() => setIsOpen(false)}
         >
-          <div className="watch-help-graphic">
-            <RankingSeesawGraphic />
-          </div>
-          <p>
-            New videos are imported with a "best guess" difficulty score. After
-            watching multiple videos, you choose which was more difficult to
-            understand.
-          </p>
-          <p>
-            Ranking a video as more difficult makes its difficulty score go up
-            while the one it was compared to goes down. With enough rankings,
-            each video will settle into its home within the difficulty rankings.
-          </p>
-          <p>
-            If you're feeling adventurous, watching random videos instead of
-            videos sorted by difficulty helps this process immensely.
-          </p>
+          <Accordion defaultOpenId="how-to-use" items={HELP_SECTIONS} />
         </WatchHelpModal>
       )}
     </>

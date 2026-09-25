@@ -4419,12 +4419,9 @@ button.goal-bar-track:active {
   display: flex;
   flex-direction: column;
   gap: 12px;
-}
-
-.watch-help-graphic {
-  display: flex;
-  justify-content: center;
-  padding: 4px 0;
+  /* an open accordion section can outgrow short phone screens */
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
 }
 
 .watch-intro-modal h3 {
@@ -4439,7 +4436,7 @@ button.goal-bar-track:active {
 }
 
 .watch-intro-modal .btn {
-  align-self: flex-start;
+  align-self: center;
   margin-top: 8px;
 }
 
@@ -4458,4 +4455,86 @@ button.goal-bar-track:active {
 
 .watch-intro-close:hover {
   color: var(--color-text);
+}
+
+/* Accordion (components/Accordion.tsx) -- the panel animates height by
+   transitioning grid rows from 0fr to 1fr, so content of any height works
+   without measuring it. */
+.accordion {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--color-border);
+}
+
+.accordion-item {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.accordion-heading {
+  margin: 0;
+}
+
+.accordion-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.accordion-trigger:hover {
+  color: var(--color-primary);
+}
+
+.accordion-trigger:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.accordion-trigger svg {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: transform 0.2s ease;
+}
+
+.accordion-item-open .accordion-trigger svg {
+  transform: rotate(180deg);
+}
+
+.accordion-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+}
+
+.accordion-item-open .accordion-panel {
+  grid-template-rows: 1fr;
+}
+
+.accordion-panel-clip {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.accordion-panel-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .accordion-trigger svg,
+  .accordion-panel {
+    transition: none;
+  }
 }

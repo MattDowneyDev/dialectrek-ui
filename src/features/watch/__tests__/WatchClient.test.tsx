@@ -47,8 +47,6 @@ vi.mock("../YouTubePlayer", () => ({
   },
 }));
 
-vi.mock("../WatchIntroModal", () => ({ default: () => null }));
-
 type IOCallback = (entries: { isIntersecting: boolean }[]) => void;
 let ioCallback: IOCallback | null = null;
 
